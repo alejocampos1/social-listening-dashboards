@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 from .filters import FilterManager
 from .tables import DataTableManager
+from .visualizations import VisualizationManager
 
 def render_dashboard_header(dashboard_info):
     """Renderiza el header del dashboard"""
@@ -75,65 +76,10 @@ def render_main_content(filter_manager):
         st.warning("⚠️ Por favor aplique los filtros para visualizar los datos")
         return
     
-    # KPIs principales
-    st.subheader("📊 Métricas Principales")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            label="Total Menciones",
-            value="---",
-            delta="---",
-            help="Número total de menciones en el período seleccionado"
-        )
-    
-    with col2:
-        st.metric(
-            label="Engagement",
-            value="---",
-            delta="---",
-            help="Engagement promedio de las menciones"
-        )
-    
-    with col3:
-        st.metric(
-            label="Alcance",
-            value="---",
-            delta="---",
-            help="Alcance total de las menciones"
-        )
-    
-    with col4:
-        st.metric(
-            label="Sentimiento Promedio",
-            value="---",
-            delta="---",
-            help="Distribución de sentimientos"
-        )
-    
     # Área de visualizaciones
-    st.subheader("📈 Visualizaciones")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.info("🚧 **Gráfico Timeline por Red Social**\n\nMostrará el volumen de menciones a lo largo del tiempo, separado por plataforma.")
-        
-        # Placeholder para parámetros del gráfico
-        with st.expander("Configuración del gráfico (futuro)"):
-            st.write("**Filtros aplicados:**")
-            query_params = filter_manager.build_query_filters()
-            st.json(query_params)
-    
-    with col2:
-        st.info("🚧 **Gráfico de Distribución de Polaridad**\n\nMostrará la distribución de sentimientos en formato donut chart.")
-        
-        # Mostrar configuración de polaridad
-        with st.expander("Configuración de polaridad (futuro)"):
-            if filters['polaridad'] == 'Todos':
-                st.write("Mostrando todas las polaridades")
-            else:
-                st.write(f"Filtrado por: {filters['polaridad']}")
+    # Renderizar visualizaciones
+    viz_manager = VisualizationManager()
+    viz_manager.render_visualizations(filters)
     
     # Tabla de registros
     st.subheader("📋 Registros Recientes (Top 100)")
