@@ -1,4 +1,5 @@
 import streamlit as st
+from src.utils.styling import StyleManager
 from src.database.connection import DatabaseConnection
 from src.dashboard.template import render_dashboard
 from src.auth.authenticator import (
@@ -18,6 +19,10 @@ st.set_page_config(
 
 def main():
     """Función principal de la aplicación"""
+    
+    # Aplicar styling personalizado
+    style_manager = StyleManager()
+    style_manager.apply_custom_css()
     
     # Verificar autenticación
     if not check_authentication():

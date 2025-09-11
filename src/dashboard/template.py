@@ -5,20 +5,37 @@ from .tables import DataTableManager
 from .visualizations import VisualizationManager
 
 def render_dashboard_header(dashboard_info):
-    """Renderiza el header del dashboard"""
-    col1, col2 = st.columns([3, 1])
+    """Renderiza el header del dashboard con styling profesional"""
     
-    with col1:
-        st.title(dashboard_info['title'])
-        st.caption(dashboard_info['description'])
+    # Header con styling personalizado
+    header_html = f"""
+    <div class="main-header fade-in">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 class="gradient-title" style="margin: 0; font-size: 2.5rem;">
+                    {dashboard_info['title']}
+                </h1>
+                <p style="color: rgba(255,255,255,0.7); margin: 0.5rem 0 0 0; font-size: 1.1rem;">
+                    {dashboard_info['description']}
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <div style="
+                    background: linear-gradient(135deg, #1E293B 0%, #262730 100%);
+                    padding: 1rem;
+                    border-radius: 8px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <h4 style="color: #00D4FF; margin: 0; font-size: 0.9rem;">Última Actualización</h4>
+                    <p style="color: white; margin: 0.25rem 0 0 0; font-weight: 600;">Pendiente</p>
+                    <small style="color: rgba(255,255,255,0.6);">Timestamp del registro más reciente</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
     
-    with col2:
-        # Placeholder para timestamp de última actualización
-        st.metric(
-            label="Última Actualización",
-            value="Pendiente",
-            help="Timestamp del registro más reciente"
-        )
+    st.markdown(header_html, unsafe_allow_html=True)
 
 def render_filters_summary(filter_manager):
     """Renderiza un resumen de los filtros aplicados"""
