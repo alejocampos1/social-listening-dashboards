@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from .filters import FilterManager
+from .tables import DataTableManager
 
 def render_dashboard_header(dashboard_info):
     """Renderiza el header del dashboard"""
@@ -136,26 +137,10 @@ def render_main_content(filter_manager):
     
     # Tabla de registros
     st.subheader("📋 Registros Recientes (Top 100)")
-    
-    # Información sobre la tabla futura
-    st.info("🚧 **Tabla de Datos**\n\nMostrará los 100 registros más recientes que coincidan con los filtros aplicados.")
-    
-    with st.expander("Vista previa de estructura de tabla"):
-        import pandas as pd
-        
-        # DataFrame de ejemplo para mostrar estructura
-        sample_data = {
-            'Fecha': ['2024-01-15', '2024-01-14', '2024-01-13'],
-            'Red Social': ['Facebook', 'Instagram', 'X (Twitter)'],
-            'Usuario': ['@usuario1', '@usuario2', '@usuario3'],
-            'Contenido': ['Texto de ejemplo...', 'Otro texto...', 'Más contenido...'],
-            'Polaridad': ['Positivo', 'Neutro', 'Negativo'],
-            'Engagement': [150, 89, 234]
-        }
-        
-        df_sample = pd.DataFrame(sample_data)
-        st.dataframe(df_sample, use_container_width=True)
-        st.caption("Vista previa de la estructura de datos (datos de ejemplo)")
+
+    # Renderizar tabla de datos
+    table_manager = DataTableManager()
+    df_resultado = table_manager.render_data_table(filters)
 
 def render_dashboard(user_info):
     """Función principal que renderiza todo el dashboard"""
