@@ -1,4 +1,6 @@
 import streamlit as st
+from src.database.connection import DatabaseConnection
+from src.dashboard.template import render_dashboard
 from src.auth.authenticator import (
     show_login_form, 
     check_authentication, 
@@ -33,13 +35,28 @@ def main():
         st.divider()
         show_logout_button()
     
-    # Área principal del dashboard
-    st.title(user_info['dashboard']['title'])
-    st.write(user_info['dashboard']['description'])
-    
-    # TEMPORAL: Mostrar información del dashboard
-    st.info("🚧 Dashboard en construcción...")
-    
+    # Renderizar dashboard completo
+    filter_manager = render_dashboard(user_info)
+
+    # Test de conexión a base de datos
+    with st.expander("🔗 Test de Conexión a Base de Datos"):
+        if st.button("Probar Conexión"):
+            db = DatabaseConnection()
+            success, message = db.test_connection()
+            
+            if success:
+                st.success(f"✅ {message}")
+                
+                # Mostrar tablas disponibles
+                st.write("**Tablas disponibles:**")
+                tables = db.get_available_tables()
+                if tables:
+                    st.write(tables)
+                else:
+                    st.write("No se pudieron obtener las tablas")
+            else:
+                st.error(f"❌ {message}")
+
     # Mostrar configuración actual (temporal)
     with st.expander("ℹ️ Información de configuración (temporal)"):
         st.write("**Dashboard ID:**", user_info['dashboard_id'])
