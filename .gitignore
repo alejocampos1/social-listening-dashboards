@@ -25,8 +25,8 @@ venv.bak/
 Thumbs.db
 
 # Logs
-*.log
 logs/
+*.log
 
 # Environment variables
 .env

@@ -1,4 +1,6 @@
 import streamlit as st
+from src.utils.logger import UserLogger
+
 
 class AuthManager:
     def __init__(self):
@@ -64,6 +66,10 @@ def show_login_form():
                 success, user_info = auth_manager.authenticate(username, password)
                 
                 if success:
+                    # Registrar login en logs
+                    logger = UserLogger()
+                    logger.log_login(username, user_info)
+                    
                     # Guardar info en session state
                     st.session_state.authenticated = True
                     st.session_state.user_info = user_info
@@ -84,6 +90,14 @@ def get_user_info():
 def show_logout_button():
     """Muestra el botón de logout en la sidebar"""
     if st.sidebar.button("🚪 Cerrar Sesión"):
+        # Registrar logout en logs
+        username = st.session_state.get('username')
+        user_info = st.session_state.get('user_info')
+        
+        logger = UserLogger()
+        logger.log_logout(username, user_info)
+        
+        # Hacer logout
         auth_manager = AuthManager()
         auth_manager.logout()
         st.rerun()
