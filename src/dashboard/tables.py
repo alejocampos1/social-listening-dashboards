@@ -7,40 +7,20 @@ class DataTableManager:
     def __init__(self):
         pass
     
-    def render_data_table(self, filters, alerta_id, db_connection):
-        """Renderiza la tabla de datos con los filtros aplicados usando datos reales"""
+    def render_data_table(self, filters, df_completo):
+        """Renderiza la tabla de datos con los filtros aplicados usando datos compartidos"""
         
         if not filters['applied']:
             st.info("🔍 Aplique los filtros para ver los datos en la tabla")
             return
         
-        # Convertir polaridad de filtro a código de BD
-        sentiment_code = None
-        if filters['polaridad'] != 'Todos':
-            sentiment_mapping = {
-                'Positivo': 'POS',
-                'Neutro': 'NEU',
-                'Negativo': 'NEG'
-            }
-            sentiment_code = sentiment_mapping.get(filters['polaridad'])
-        
-        # Obtener datos reales de la base de datos
-        with st.spinner("Cargando datos..."):
-            df = db_connection.get_social_listening_data(
-                alerta_id=alerta_id,
-                origins=filters['origen'],
-                start_date=filters['fecha_inicio'],
-                end_date=filters['fecha_fin'],
-                sentiment=sentiment_code,
-                limit=100
-            )
-        
         # Verificar si hay datos
-        if df.empty:
+        if df_completo.empty:
             st.warning("⚠️ No se encontraron datos para los filtros aplicados")
             return pd.DataFrame()
         
         # Convertir sentiment_pred a texto legible
+        df = df_completo.copy()
         sentiment_display_mapping = {
             'POS': 'Positivo',
             'NEU': 'Neutro', 
@@ -48,7 +28,7 @@ class DataTableManager:
         }
         df['polaridad_display'] = df['sentiment_pred'].map(sentiment_display_mapping).fillna('Desconocido')
         
-        # Calcular métricas de la tabla
+        # Calcular métricas de la tabla (sobre todos los datos)
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Registros", len(df))
@@ -71,8 +51,8 @@ class DataTableManager:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            # Filtro por red social específica
-            redes_en_data = df['origin'].unique().tolist() if 'origin' in df.columns else []
+            # Filtro por red social específica - usar todas las opciones disponibles
+            redes_en_data = filters['origen']  # Usar las mismas opciones del filtro principal
             selected_red = st.selectbox(
                 "Filtrar por Red Social",
                 options=['Todas'] + redes_en_data,
@@ -80,8 +60,8 @@ class DataTableManager:
             )
         
         with col2:
-            # Filtro por polaridad específica
-            polaridades_en_data = df['polaridad_display'].unique().tolist()
+            # Filtro por polaridad específica - usar todas las opciones disponibles
+            polaridades_en_data = ['Positivo', 'Neutro', 'Negativo']  # Opciones fijas completas
             selected_pol = st.selectbox(
                 "Filtrar por Polaridad",
                 options=['Todas'] + polaridades_en_data,
@@ -134,9 +114,9 @@ class DataTableManager:
         with col1:
             show_full_content = st.checkbox("Mostrar contenido completo", value=False)
         with col2:
-            rows_to_show = st.number_input("Filas a mostrar", min_value=10, max_value=100, value=50, step=10)
+            rows_to_show = st.number_input("Filas a mostrar", min_value=10, max_value=500, value=100, step=10)
         
-        # Preparar DataFrame para display
+        # Preparar DataFrame para display (limitar a muestra para performance)
         display_df = filtered_df.head(rows_to_show).copy()
         
         # Truncar contenido si es necesario
@@ -212,6 +192,39 @@ class DataTableManager:
             with col2:
                 st.write("**Distribución por Polaridad:**")
                 pol_counts = filtered_df['polaridad_display'].value_counts()
-                st.bar_chart(pol_counts)
+                
+                # Usar los mismos colores que en visualizations.py
+                sentiment_colors = {
+                    'Positivo': '#10B981',    # Verde
+                    'Neutro': '#F59E0B',      # Amarillo
+                    'Negativo': '#FF006B'     # Magenta
+                }
+                
+                # Crear DataFrame para plotly
+                import plotly.express as px
+                
+                chart_data = pd.DataFrame({
+                    'Polaridad': pol_counts.index,
+                    'Cantidad': pol_counts.values
+                })
+                
+                fig = px.bar(
+                    chart_data,
+                    x='Polaridad', 
+                    y='Cantidad',
+                    color='Polaridad',
+                    color_discrete_map=sentiment_colors
+                )
+                
+                fig.update_layout(
+                    showlegend=False,
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    xaxis_title="",
+                    yaxis_title=""
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
         
         return filtered_df

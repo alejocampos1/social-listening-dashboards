@@ -13,17 +13,18 @@ class FilterManager:
                 'fecha_inicio': datetime.now() - timedelta(days=30),
                 'fecha_fin': datetime.now(),
                 'polaridad': 'Todos',
-                'applied': False
+                'applied': True
             }
     
     def render_filters(self):
         """Renderiza los filtros en la sidebar y maneja su estado"""
-        st.sidebar.header("🔍 Filtros")
+        st.sidebar.header("🔍  Filtros")
         
         # Filtro de Origen
         origen_options = ["Facebook", "X (Twitter)", "Instagram", "TikTok"]
+        st.sidebar.subheader("📡  Origen (Redes Sociales)")
         selected_origen = st.sidebar.multiselect(
-            "Origen (Redes Sociales)",
+            "Seleccione al menos una plataforma",
             options=origen_options,
             default=st.session_state.filters['origen'],
             help="Selecciona las redes sociales a incluir",
@@ -31,10 +32,10 @@ class FilterManager:
         )
         
         # Filtro de Timeline
-        st.sidebar.subheader("📅 Línea de Tiempo")
+        st.sidebar.subheader("📅  Fecha")
         
         time_option = st.sidebar.selectbox(
-            "Período",
+            "Seleccione un rango de fechas",
             ["Rango personalizado", "Últimos 7 días", "Últimos 30 días", "Últimos 3 meses"],
             key="filter_time_option"
         )
@@ -77,13 +78,12 @@ class FilterManager:
             return None
         
         # Filtro de Polaridad
-        st.sidebar.subheader("😊 Polaridad")
+        st.sidebar.subheader("📊  Polaridad")
         polaridad_options = ["Todos", "Positivo", "Neutro", "Negativo"]
         selected_polaridad = st.sidebar.radio(
             "Sentimiento",
             options=polaridad_options,
             index=polaridad_options.index(st.session_state.filters['polaridad']),
-            help="Filtrar por tipo de sentimiento",
             key="filter_polaridad"
         )
         
@@ -133,6 +133,11 @@ class FilterManager:
             }
             st.rerun()
         
+        # Botón de logout al final de la sidebar
+        st.sidebar.markdown("---")
+        from src.auth.authenticator import show_logout_button
+        show_logout_button()
+
         return st.session_state.filters
     
     def get_filter_summary(self):

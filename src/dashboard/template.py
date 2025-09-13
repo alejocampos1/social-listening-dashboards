@@ -46,7 +46,7 @@ def render_filters_summary(filter_manager):
         st.info("🔍 Configure y aplique filtros para ver los datos")
         return
     
-    with st.expander("📋 Resumen de Filtros Aplicados", expanded=True):
+    with st.expander("📋 Resumen de Filtros Aplicados", expanded=False):
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -85,28 +85,42 @@ def render_main_content(filter_manager, user_info, db_connection):
     """Renderiza el contenido principal del dashboard"""
     filters = st.session_state.filters
     
+    # Mostrar resumen de filtros
+    render_filters_summary(filter_manager)
+    
     # Solo mostrar contenido si los filtros están aplicados
     if not filters['applied']:
         st.warning("⚠️ Por favor aplique los filtros para visualizar los datos")
         return
     
-    # Área de visualizaciones
-    # Renderizar visualizaciones
-    viz_manager = VisualizationManager()
-    
-    # Asignar alerta ID para visualizaciones
+    # QUERY ÚNICA - Obtener todos los datos necesarios
     alerta_id = user_info['dashboard']['alert_ids'][0]
-    viz_manager.render_visualizations(filters, alerta_id, db_connection)
     
-    # Tabla de registros
-    st.subheader("📋 Registros Recientes (Top 100)")
-
-    # Renderizar tabla de datos
+    # Convertir polaridad de filtro a código de BD
+    sentiment_code = None
+    if filters['polaridad'] != 'Todos':
+        sentiment_mapping = {'Positivo': 'POS', 'Neutro': 'NEU', 'Negativo': 'NEG'}
+        sentiment_code = sentiment_mapping.get(filters['polaridad'])
+    
+    with st.spinner("Cargando datos..."):
+        # Query principal sin límite (o límite alto para performance)
+        df_completo = db_connection.get_social_listening_data(
+            alerta_id=alerta_id,
+            origins=filters['origen'],
+            start_date=filters['fecha_inicio'],
+            end_date=filters['fecha_fin'],
+            sentiment=sentiment_code,
+            limit=None
+        )
+    
+    # Área de visualizaciones - usar datos compartidos
+    viz_manager = VisualizationManager()
+    viz_manager.render_visualizations(filters, df_completo)
+    
+    # Tabla de registros - usar datos compartidos
+    st.subheader("📋 Registros Recientes (Top 500)")
     table_manager = DataTableManager()
-    df_resultado = table_manager.render_data_table(filters, alerta_id, db_connection)
-    
-    # Mostrar resumen de filtros
-    render_filters_summary(filter_manager)
+    df_resultado = table_manager.render_data_table(filters, df_completo)
 
 def render_dashboard(user_info, db_connection):
     """Función principal que renderiza todo el dashboard"""

@@ -200,10 +200,12 @@ class SocialListeningQueryBuilder:
         final_query = " UNION ALL ".join(union_queries)
         
         # Agregar ORDER BY y LIMIT
-        final_query += f"""
+        final_query += """
         ORDER BY created_time DESC
-        LIMIT {limit}
         """
+
+        if limit is not None:
+            final_query += f"LIMIT {limit}"
         
         return final_query
     

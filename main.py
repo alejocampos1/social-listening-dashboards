@@ -38,11 +38,11 @@ def main():
         st.write(f"**Usuario:** {user_info['user']['name']}")
         st.write(f"**Email:** {user_info['user']['email']}")
         st.divider()
-        show_logout_button()
-    
+            
     # Renderizar dashboard completo
     db = DatabaseConnection()
     filter_manager = render_dashboard(user_info, db)
+
 
 if __name__ == "__main__":
     main()
