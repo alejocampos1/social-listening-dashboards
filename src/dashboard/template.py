@@ -81,12 +81,9 @@ def render_filters_summary(filter_manager):
         st.write("**Plataformas seleccionadas:**", ", ".join(filters['origen']))
         st.write(f"**Rango de fechas:** {filters['fecha_inicio'].strftime('%Y-%m-%d')} a {filters['fecha_fin'].strftime('%Y-%m-%d')}")
 
-def render_main_content(filter_manager):
+def render_main_content(filter_manager, user_info, db_connection):
     """Renderiza el contenido principal del dashboard"""
     filters = st.session_state.filters
-    
-    # Mostrar resumen de filtros
-    render_filters_summary(filter_manager)
     
     # Solo mostrar contenido si los filtros están aplicados
     if not filters['applied']:
@@ -96,16 +93,22 @@ def render_main_content(filter_manager):
     # Área de visualizaciones
     # Renderizar visualizaciones
     viz_manager = VisualizationManager()
-    viz_manager.render_visualizations(filters)
+    
+    # Asignar alerta ID para visualizaciones
+    alerta_id = user_info['dashboard']['alert_ids'][0]
+    viz_manager.render_visualizations(filters, alerta_id, db_connection)
     
     # Tabla de registros
     st.subheader("📋 Registros Recientes (Top 100)")
 
     # Renderizar tabla de datos
     table_manager = DataTableManager()
-    df_resultado = table_manager.render_data_table(filters)
+    df_resultado = table_manager.render_data_table(filters, alerta_id, db_connection)
+    
+    # Mostrar resumen de filtros
+    render_filters_summary(filter_manager)
 
-def render_dashboard(user_info):
+def render_dashboard(user_info, db_connection):
     """Función principal que renderiza todo el dashboard"""
     # Inicializar el filter manager
     filter_manager = FilterManager()
@@ -117,6 +120,6 @@ def render_dashboard(user_info):
     filters = filter_manager.render_filters()
     
     # Renderizar contenido principal
-    render_main_content(filter_manager)
+    render_main_content(filter_manager, user_info, db_connection)
     
     return filter_manager

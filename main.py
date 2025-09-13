@@ -41,31 +41,8 @@ def main():
         show_logout_button()
     
     # Renderizar dashboard completo
-    filter_manager = render_dashboard(user_info)
-
-    # Test de conexión a base de datos
-    with st.expander("🔗 Test de Conexión a Base de Datos"):
-        if st.button("Probar Conexión"):
-            db = DatabaseConnection()
-            success, message = db.test_connection()
-            
-            if success:
-                st.success(f"✅ {message}")
-                
-                # Mostrar tablas disponibles
-                st.write("**Tablas disponibles:**")
-                tables = db.get_available_tables()
-                if tables:
-                    st.write(tables)
-                else:
-                    st.write("No se pudieron obtener las tablas")
-            else:
-                st.error(f"❌ {message}")
-
-    # Mostrar configuración actual (temporal)
-    with st.expander("ℹ️ Información de configuración (temporal)"):
-        st.write("**Dashboard ID:**", user_info['dashboard_id'])
-        st.write("**Alert IDs:**", user_info['dashboard']['alert_ids'])
+    db = DatabaseConnection()
+    filter_manager = render_dashboard(user_info, db)
 
 if __name__ == "__main__":
     main()

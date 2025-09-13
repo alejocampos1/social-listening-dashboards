@@ -33,105 +33,98 @@ class VisualizationManager:
             'Negativo': self.color_palette['secondary']
         }
     
-    def generate_timeline_data(self, filters):
-        """Genera datos para el gráfico timeline"""
-        start_date = filters['fecha_inicio']
-        end_date = filters['fecha_fin']
-        days = (end_date - start_date).days
+    def create_timeline_chart(self, filters, alerta_id, db_connection):
+        """Crea el gráfico de timeline por red social usando datos reales"""
         
-        # Crear fechas
-        dates = [start_date + timedelta(days=i) for i in range(days + 1)]
-        
-        data = []
-        for date in dates:
-            for red_social in filters['origen']:
-                # Generar volumen aleatorio con tendencias realistas
-                base_volume = random.randint(10, 100)
-                
-                # Agregar variación por día de la semana
-                if date.weekday() in [5, 6]:  # Fin de semana
-                    volume_modifier = 0.7
-                else:
-                    volume_modifier = 1.0
-                
-                # Agregar variación por red social
-                if red_social == 'Facebook':
-                    social_modifier = 1.2
-                elif red_social == 'Instagram':
-                    social_modifier = 1.0
-                elif red_social == 'X (Twitter)':
-                    social_modifier = 0.8
-                else:  # TikTok
-                    social_modifier = 1.1
-                
-                final_volume = int(base_volume * volume_modifier * social_modifier)
-                
-                data.append({
-                    'Fecha': date,
-                    'Red Social': red_social,
-                    'Volumen': final_volume
-                })
-        
-        return pd.DataFrame(data)
-    
-    def generate_sentiment_data(self, filters):
-        """Genera datos para distribución de sentimientos"""
+        # Convertir polaridad de filtro a código de BD
+        sentiment_code = None
         if filters['polaridad'] != 'Todos':
-            # Si hay filtro específico, mostrar solo ese
-            return pd.DataFrame({
-                'Polaridad': [filters['polaridad']],
-                'Count': [random.randint(80, 120)],
-                'Percentage': [100.0]
-            })
+            sentiment_mapping = {
+                'Positivo': 'POS',
+                'Neutro': 'NEU',
+                'Negativo': 'NEG'
+            }
+            sentiment_code = sentiment_mapping.get(filters['polaridad'])
         
-        # Distribución realista de sentimientos
-        data = {
-            'Positivo': random.randint(30, 50),
-            'Neutro': random.randint(40, 60), 
-            'Negativo': random.randint(20, 40)
-        }
+        # Obtener datos reales de timeline
+        df = db_connection.get_timeline_data(
+            alerta_id=alerta_id,
+            origins=filters['origen'],
+            start_date=filters['fecha_inicio'],
+            end_date=filters['fecha_fin'],
+            sentiment=sentiment_code
+        )
         
-        total = sum(data.values())
-        
-        result = []
-        for sentiment, count in data.items():
-            result.append({
-                'Polaridad': sentiment,
-                'Count': count,
-                'Percentage': round((count / total) * 100, 1)
-            })
-        
-        return pd.DataFrame(result)
-    
-    def create_timeline_chart(self, filters):
-        """Crea el gráfico de timeline por red social"""
-        df = self.generate_timeline_data(filters)
+        # Verificar si hay datos
+        if df.empty:
+            # Crear gráfico vacío con mensaje
+            fig = go.Figure()
+            fig.add_annotation(
+                text="No hay datos disponibles para el período seleccionado",
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                font_size=16, font_color="white",
+                showarrow=False
+            )
+            fig.update_layout(
+                title={
+                    'text': 'Volumen de Menciones por Red Social',
+                    'x': 0.5,
+                    'font': {'size': 18, 'color': 'white'}
+                },
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white'),
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False)
+            )
+            return fig
         
         # Crear gráfico de líneas múltiples
         fig = go.Figure()
         
         for red_social in filters['origen']:
-            data_red = df[df['Red Social'] == red_social]
+            # Filtrar datos para esta red social
+            data_red = df[df['origin'] == red_social] if 'origin' in df.columns else pd.DataFrame()
             
-            fig.add_trace(go.Scatter(
-                x=data_red['Fecha'],
-                y=data_red['Volumen'],
-                mode='lines+markers',
-                name=red_social,
-                line=dict(
-                    color=self.social_colors.get(red_social, self.color_palette['primary']),
-                    width=3
-                ),
-                marker=dict(
-                    size=6,
-                    color=self.social_colors.get(red_social, self.color_palette['primary']),
-                    line=dict(width=1, color='white')
-                ),
-                hovertemplate=f'<b>{red_social}</b><br>' +
-                             'Fecha: %{x}<br>' +
-                             'Volumen: %{y}<br>' +
-                             '<extra></extra>'
-            ))
+            if not data_red.empty:
+                fig.add_trace(go.Scatter(
+                    x=data_red['fecha'],
+                    y=data_red['total_count'],
+                    mode='lines+markers',
+                    name=red_social,
+                    line=dict(
+                        color=self.social_colors.get(red_social, self.color_palette['primary']),
+                        width=3
+                    ),
+                    marker=dict(
+                        size=6,
+                        color=self.social_colors.get(red_social, self.color_palette['primary']),
+                        line=dict(width=1, color='white')
+                    ),
+                    hovertemplate=f'<b>{red_social}</b><br>' +
+                                'Fecha: %{x}<br>' +
+                                'Volumen: %{y}<br>' +
+                                '<extra></extra>'
+                ))
+            else:
+                # Agregar serie vacía para mantener consistencia en la leyenda
+                fig.add_trace(go.Scatter(
+                    x=[],
+                    y=[],
+                    mode='lines+markers',
+                    name=red_social,
+                    line=dict(
+                        color=self.social_colors.get(red_social, self.color_palette['primary']),
+                        width=3
+                    ),
+                    marker=dict(
+                        size=6,
+                        color=self.social_colors.get(red_social, self.color_palette['primary']),
+                        line=dict(width=1, color='white')
+                    ),
+                    hovertemplate=f'<b>{red_social}</b><br>Sin datos<extra></extra>'
+                ))
         
         # Styling del gráfico
         fig.update_layout(
@@ -147,7 +140,8 @@ class VisualizationManager:
             font=dict(color='white'),
             xaxis=dict(
                 gridcolor='rgba(255,255,255,0.1)',
-                showgrid=True
+                showgrid=True,
+                type='date'
             ),
             yaxis=dict(
                 gridcolor='rgba(255,255,255,0.1)',
@@ -163,29 +157,97 @@ class VisualizationManager:
         
         return fig
     
-    def create_sentiment_donut(self, filters):
-        """Crea el gráfico donut de distribución de sentimientos"""
-        df = self.generate_sentiment_data(filters)
+    def create_sentiment_donut(self, filters, alerta_id, db_connection):
+        """Crea el gráfico donut de distribución de sentimientos usando datos reales"""
+        
+        # Obtener datos reales de distribución de sentimientos
+        df = db_connection.get_sentiment_distribution(
+            alerta_id=alerta_id,
+            origins=filters['origen'],
+            start_date=filters['fecha_inicio'],
+            end_date=filters['fecha_fin']
+        )
+        
+        # Verificar si hay datos
+        if df.empty:
+            # Crear gráfico vacío con mensaje
+            fig = go.Figure()
+            fig.add_annotation(
+                text="No hay datos de sentimiento disponibles",
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                font_size=16, font_color="white",
+                showarrow=False
+            )
+            fig.update_layout(
+                title={
+                    'text': 'Distribución de Polaridad',
+                    'x': 0.5,
+                    'font': {'size': 18, 'color': 'white'}
+                },
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white'),
+                showlegend=False
+            )
+            return fig
+        
+        # Convertir códigos de sentimiento a texto legible
+        sentiment_mapping = {
+            'POS': 'Positivo',
+            'NEU': 'Neutro',
+            'NEG': 'Negativo'
+        }
+        
+        df['sentiment_display'] = df['sentiment_pred'].map(sentiment_mapping).fillna('Desconocido')
+        
+        # Si hay filtro de polaridad específico, mostrar solo ese
+        if filters['polaridad'] != 'Todos':
+            df = df[df['sentiment_display'] == filters['polaridad']]
+            
+            if df.empty:
+                # Crear gráfico vacío para filtro específico
+                fig = go.Figure()
+                fig.add_annotation(
+                    text=f"No hay datos para polaridad: {filters['polaridad']}",
+                    x=0.5, y=0.5,
+                    xref="paper", yref="paper",
+                    font_size=16, font_color="white",
+                    showarrow=False
+                )
+                fig.update_layout(
+                    title={
+                        'text': 'Distribución de Polaridad',
+                        'x': 0.5,
+                        'font': {'size': 18, 'color': 'white'}
+                    },
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='white'),
+                    showlegend=False
+                )
+                return fig
         
         # Colores para cada sentimiento
-        colors = [self.sentiment_colors[sentiment] for sentiment in df['Polaridad']]
+        colors = [self.sentiment_colors.get(sentiment, self.color_palette['primary']) 
+                for sentiment in df['sentiment_display']]
         
         fig = go.Figure(data=[go.Pie(
-            labels=df['Polaridad'],
-            values=df['Count'],
+            labels=df['sentiment_display'],
+            values=df['count'],
             hole=0.4,
             marker_colors=colors,
             textinfo='label+percent',
             textposition='outside',
             textfont=dict(size=14, color='white'),
             hovertemplate='<b>%{label}</b><br>' +
-                         'Cantidad: %{value}<br>' +
-                         'Porcentaje: %{percent}<br>' +
-                         '<extra></extra>'
+                        'Cantidad: %{value}<br>' +
+                        'Porcentaje: %{percent}<br>' +
+                        '<extra></extra>'
         )])
         
-        # Agregar texto central
-        total_mentions = df['Count'].sum()
+        # Agregar texto central con total
+        total_mentions = df['count'].sum()
         fig.add_annotation(
             text=f"<b>{total_mentions:,}</b><br>Total",
             x=0.5, y=0.5,
@@ -218,87 +280,153 @@ class VisualizationManager:
         
         return fig
     
-    def calculate_kpis(self, filters, df_data=None):
-        """Calcula los KPIs principales"""
-        # Simular datos de KPIs basados en filtros
-        days = (filters['fecha_fin'] - filters['fecha_inicio']).days
-        networks_count = len(filters['origen'])
+    def render_kpis(self, filters, alerta_id, db_connection):
+        """Renderiza los KPIs principales usando datos reales"""
         
-        # Simular métricas realistas
-        total_mentions = random.randint(500, 2000) * networks_count
-        avg_engagement = round(random.uniform(2.5, 6.5), 2)
-        total_reach = random.randint(50000, 200000) * networks_count
+        # Convertir polaridad de filtro a código de BD
+        sentiment_code = None
+        if filters['polaridad'] != 'Todos':
+            sentiment_mapping = {
+                'Positivo': 'POS',
+                'Neutro': 'NEU',
+                'Negativo': 'NEG'
+            }
+            sentiment_code = sentiment_mapping.get(filters['polaridad'])
+        
+        # Obtener datos para calcular KPIs
+        df = db_connection.get_social_listening_data(
+            alerta_id=alerta_id,
+            origins=filters['origen'],
+            start_date=filters['fecha_inicio'],
+            end_date=filters['fecha_fin'],
+            sentiment=sentiment_code,
+        )
+        
+        # Verificar si hay datos
+        if df.empty:
+            # Mostrar KPIs vacíos
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    label="📊 Total Menciones",
+                    value="0",
+                    help="Número total de menciones en el período seleccionado"
+                )
+            
+            with col2:
+                st.metric(
+                    label="🎯 Confianza Promedio",
+                    value="N/A",
+                    help="Confianza promedio del análisis de sentimiento"
+                )
+            
+            with col3:
+                st.metric(
+                    label="👥 Total Likes", 
+                    value="0",
+                    help="Suma total de likes/reacciones"
+                )
+            
+            with col4:
+                st.metric(
+                    label="😊 Sentimiento",
+                    value="N/A",
+                    help="Puntuación de sentimiento promedio"
+                )
+            return
+        
+        # Calcular KPIs
+        total_mentions = db_connection.get_total_mentions_count(
+                        alerta_id=alerta_id,
+                        origins=filters['origen'],
+                        start_date=filters['fecha_inicio'],
+                        end_date=filters['fecha_fin'],
+                        sentiment=sentiment_code
+                    )
+        
+        # Confianza promedio
+        if 'sentiment_confidence' in df.columns:
+            avg_confidence = df['sentiment_confidence'].mean()
+            confidence_display = f"{avg_confidence:.2f}"
+            confidence_delta = None  # No tenemos datos históricos para comparar
+        else:
+            confidence_display = "N/A"
+            confidence_delta = None
+        
+        # Total de likes
+        if 'likes' in df.columns:
+            total_likes = df['likes'].fillna(0).sum()
+            likes_display = f"{int(total_likes):,}"
+        else:
+            total_likes = 0
+            likes_display = "N/A"
         
         # Calcular sentimiento promedio
-        sentiment_data = self.generate_sentiment_data(filters)
-        if filters['polaridad'] == 'Todos':
-            # Calcular weighted average
-            positive_weight = sentiment_data[sentiment_data['Polaridad'] == 'Positivo']['Count'].iloc[0] * 1
-            neutral_weight = sentiment_data[sentiment_data['Polaridad'] == 'Neutro']['Count'].iloc[0] * 0
-            negative_weight = sentiment_data[sentiment_data['Polaridad'] == 'Negativo']['Count'].iloc[0] * -1
+        if 'sentiment_pred' in df.columns:
+            sentiment_counts = df['sentiment_pred'].value_counts()
             
-            total_weighted = positive_weight + neutral_weight + negative_weight
-            total_count = sentiment_data['Count'].sum()
+            # Calcular weighted score
+            positive_count = sentiment_counts.get('POS', 0)
+            neutral_count = sentiment_counts.get('NEU', 0)
+            negative_count = sentiment_counts.get('NEG', 0)
             
-            sentiment_score = round((total_weighted / total_count) * 100, 1)
-        else:
-            # Si está filtrado por sentimiento específico
-            if filters['polaridad'] == 'Positivo':
-                sentiment_score = 85.0
-            elif filters['polaridad'] == 'Negativo':
-                sentiment_score = -60.0
+            if total_mentions > 0:
+                # Escala: Positivo=+1, Neutro=0, Negativo=-1
+                weighted_score = (positive_count * 1 + neutral_count * 0 + negative_count * -1) / total_mentions
+                sentiment_score = weighted_score * 100  # Convertir a escala 0-100
+                sentiment_display = f"{sentiment_score:+.1f}"
+                
+                # Determinar color del delta
+                if sentiment_score >= 0:
+                    sentiment_delta_color = "normal"
+                else:
+                    sentiment_delta_color = "inverse"
             else:
-                sentiment_score = 0.0
+                sentiment_display = "N/A"
+                sentiment_delta_color = "normal"
+        else:
+            sentiment_display = "N/A"
+            sentiment_delta_color = "normal"
         
-        return {
-            'total_mentions': total_mentions,
-            'avg_engagement': avg_engagement,
-            'total_reach': total_reach,
-            'sentiment_score': sentiment_score
-        }
-    
-    def render_kpis(self, filters):
-        """Renderiza los KPIs principales"""
-        kpis = self.calculate_kpis(filters)
-        
+        # Renderizar KPIs
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.metric(
                 label="📊 Total Menciones",
-                value=f"{kpis['total_mentions']:,}",
-                delta=f"+{random.randint(5, 25)}%",
+                value=f"{total_mentions:,}",
+                delta=None,  # Sin datos históricos para comparar
                 help="Número total de menciones en el período seleccionado"
             )
         
         with col2:
             st.metric(
-                label="💝 Engagement Promedio",
-                value=f"{kpis['avg_engagement']}%",
-                delta=f"+{round(random.uniform(0.1, 1.5), 1)}%",
-                help="Tasa de engagement promedio de las menciones"
+                label="🎯 Confianza Promedio",
+                value=confidence_display,
+                delta=confidence_delta,
+                help="Confianza promedio del análisis de sentimiento"
             )
         
         with col3:
             st.metric(
-                label="👥 Alcance Total", 
-                value=f"{kpis['total_reach']:,}",
-                delta=f"+{random.randint(10, 30)}%",
-                help="Alcance total estimado de las menciones"
+                label="👥 Total Likes", 
+                value=likes_display,
+                delta=None,  # Sin datos históricos para comparar
+                help="Suma total de likes/reacciones"
             )
         
         with col4:
-            delta_color = "normal" if kpis['sentiment_score'] >= 0 else "inverse"
             st.metric(
                 label="😊 Sentimiento",
-                value=f"{kpis['sentiment_score']:+.1f}",
-                delta=f"{random.uniform(-5, 15):+.1f}",
-                delta_color=delta_color,
+                value=sentiment_display,
+                delta=None,  # Sin datos históricos para comparar
+                delta_color=sentiment_delta_color,
                 help="Puntuación de sentimiento promedio (-100 a +100)"
             )
     
-    def render_visualizations(self, filters):
-        """Renderiza todas las visualizaciones"""
+    def render_visualizations(self, filters, alerta_id, db_connection):
+        """Renderiza todas las visualizaciones usando datos reales"""
         
         if not filters['applied']:
             st.info("🔍 Aplique los filtros para ver las visualizaciones")
@@ -306,7 +434,7 @@ class VisualizationManager:
         
         # KPIs principales
         st.subheader("📊 Métricas Principales")
-        self.render_kpis(filters)
+        self.render_kpis(filters, alerta_id, db_connection)
         
         st.divider()
         
@@ -317,12 +445,14 @@ class VisualizationManager:
         
         with col1:
             # Gráfico Timeline
-            timeline_fig = self.create_timeline_chart(filters)
-            st.plotly_chart(timeline_fig, use_container_width=True)
+            with st.spinner("Generando gráfico de timeline..."):
+                timeline_fig = self.create_timeline_chart(filters, alerta_id, db_connection)
+                st.plotly_chart(timeline_fig, use_container_width=True)
         
         with col2:
             # Gráfico Donut de Sentimientos
-            sentiment_fig = self.create_sentiment_donut(filters)
-            st.plotly_chart(sentiment_fig, use_container_width=True)
+            with st.spinner("Generando gráfico de sentimientos..."):
+                sentiment_fig = self.create_sentiment_donut(filters, alerta_id, db_connection)
+                st.plotly_chart(sentiment_fig, use_container_width=True)
         
         return True
