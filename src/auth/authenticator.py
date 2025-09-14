@@ -1,14 +1,12 @@
 import streamlit as st
-import hashlib
-import time
-from datetime import datetime, timedelta
 from src.utils.logger import UserLogger
+from .session_manager import SessionManager
 
 
 class AuthManager:
     def __init__(self):
         self.config = self._load_config()
-        self.SESSION_TIMEOUT_MINUTES = 10
+        self.session_manager = SessionManager()
     
     def _load_config(self):
         """Carga la configuración desde Streamlit secrets"""
@@ -17,89 +15,6 @@ class AuthManager:
         except Exception as e:
             st.error(f"Error cargando configuración: {e}")
             return None
-    
-    def generate_session_token(self, username):
-        """Genera un token único para la sesión"""
-        timestamp = str(time.time())
-        return hashlib.md5(f"{username}_{timestamp}".encode()).hexdigest()
-    
-    def save_session_cookie(self, username, user_info):
-        """Guarda la sesión en el session state de manera persistente"""
-        token = self.generate_session_token(username)
-        session_data = {
-            'token': token,
-            'username': username,
-            'user_info': user_info,
-            'last_activity': time.time(),
-            'login_time': time.time()
-        }
-        
-        # Guardar en session_state de manera persistente
-        st.session_state.persistent_session = session_data
-        st.session_state.authenticated = True
-        st.session_state.user_info = user_info
-        st.session_state.username = username
-    
-    def check_session_validity(self):
-        """Verifica si la sesión es válida y no ha expirado"""
-        if 'persistent_session' not in st.session_state:
-            return False
-        
-        session_data = st.session_state.persistent_session
-        last_activity = session_data.get('last_activity', 0)
-        current_time = time.time()
-        
-        # Verificar timeout de 10 minutos (600 segundos)
-        timeout_seconds = self.SESSION_TIMEOUT_MINUTES * 60
-        if current_time - last_activity > timeout_seconds:
-            self.clear_session()
-            return False
-        
-        # Actualizar timestamp de actividad
-        session_data['last_activity'] = current_time
-        st.session_state.persistent_session = session_data
-        
-        return True
-    
-    def restore_session_from_cookie(self):
-        """Restaura la sesión desde session_state si es válida"""
-        if self.check_session_validity():
-            session_data = st.session_state.persistent_session
-            st.session_state.authenticated = True
-            st.session_state.user_info = session_data['user_info']
-            st.session_state.username = session_data['username']
-            return True
-        return False
-    
-    def clear_session(self):
-        """Limpia completamente la sesión"""
-        keys_to_clear = ['authenticated', 'user_info', 'username', 'persistent_session']
-        for key in keys_to_clear:
-            if key in st.session_state:
-                del st.session_state[key]
-    
-    def get_session_info(self):
-        """Obtiene información sobre la sesión actual"""
-        if 'persistent_session' not in st.session_state:
-            return None
-        
-        session_data = st.session_state.persistent_session
-        current_time = time.time()
-        last_activity = session_data.get('last_activity', current_time)
-        login_time = session_data.get('login_time', current_time)
-        
-        # Calcular tiempo restante
-        timeout_seconds = self.SESSION_TIMEOUT_MINUTES * 60
-        time_since_activity = current_time - last_activity
-        time_remaining = max(0, timeout_seconds - time_since_activity)
-        
-        return {
-            'username': session_data.get('username'),
-            'login_time': datetime.fromtimestamp(login_time),
-            'last_activity': datetime.fromtimestamp(last_activity),
-            'time_remaining_minutes': int(time_remaining / 60),
-            'time_remaining_seconds': int(time_remaining % 60)
-        }
     
     def authenticate(self, username, password):
         """Autentica un usuario y retorna info del dashboard"""
@@ -124,9 +39,15 @@ class AuthManager:
                     }
                     
                     # Guardar sesión persistente
-                    self.save_session_cookie(username, user_info)
+                    session_token = self.session_manager.save_session(username, user_info)
+                    
+                    # Guardar también en session_state
+                    st.session_state.authenticated = True
+                    st.session_state.user_info = user_info
+                    st.session_state.username = username
                     
                     return True, user_info
+                    
         except Exception as e:
             st.error(f"Error en autenticación: {e}")
         
@@ -142,28 +63,36 @@ class AuthManager:
             logger = UserLogger()
             logger.log_logout(username, user_info)
         
-        # Limpiar sesión
-        self.clear_session()
+        # Eliminar sesión persistente
+        token = st.session_state.get('session_token')
+        if token:
+            self.session_manager.delete_session(token)
+        
+        # Limpiar session_state
+        keys_to_clear = ['authenticated', 'user_info', 'username', 'session_token']
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+
 
 def check_authentication():
     """Verifica si el usuario está autenticado, incluyendo restauración de sesión"""
     auth_manager = AuthManager()
     
-    # Primero verificar si ya hay autenticación activa
+    # Verificar sesión activa o restaurar desde archivo
     if st.session_state.get('authenticated', False):
-        # Verificar que la sesión no haya expirado
-        if auth_manager.check_session_validity():
-            return True
-        else:
-            # Sesión expirada
-            st.warning("Sesión expirada por inactividad. Por favor, inicie sesión nuevamente.")
-            return False
+        # Actualizar actividad de sesión existente
+        token = st.session_state.get('session_token')
+        if token:
+            auth_manager.session_manager.update_activity(token)
+        return True
     
-    # Intentar restaurar sesión desde cookies/session_state
-    if auth_manager.restore_session_from_cookie():
+    # Intentar restaurar sesión persistente
+    if auth_manager.session_manager.restore_session_if_valid():
         return True
     
     return False
+
 
 def show_login_form():
     """Muestra el formulario de login"""
@@ -200,9 +129,11 @@ def show_login_form():
                     else:
                         st.error("❌ Usuario o contraseña incorrectos")
 
+
 def get_user_info():
     """Obtiene la información del usuario autenticado"""
     return st.session_state.get('user_info', None)
+
 
 def show_logout_button():
     """Muestra el botón de logout en la sidebar"""

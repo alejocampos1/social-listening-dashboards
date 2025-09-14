@@ -31,7 +31,7 @@ class DataTableManager:
         # Calcular métricas de la tabla (sobre todos los datos)
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Registros", len(df))
+            st.metric("Total Registros", f"{len(df):,}")
         with col2:
             if 'sentiment_confidence' in df.columns:
                 confidence_avg = df['sentiment_confidence'].mean()
@@ -180,40 +180,36 @@ class DataTableManager:
         )
         
         # Información adicional
-        with st.expander("📊 Estadísticas de la tabla"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**Distribución por Red Social:**")
-                if 'origin' in filtered_df.columns:
-                    red_counts = filtered_df['origin'].value_counts()
-                    st.bar_chart(red_counts)
-            
-            with col2:
-                st.write("**Distribución por Polaridad:**")
-                pol_counts = filtered_df['polaridad_display'].value_counts()
+        st.subheader("Estadísticas de la tabla")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Distribución por Red Social:**")
+            if 'origin' in filtered_df.columns:
+                red_counts = filtered_df['origin'].value_counts()
                 
                 # Usar los mismos colores que en visualizations.py
-                sentiment_colors = {
-                    'Positivo': '#10B981',    # Verde
-                    'Neutro': '#F59E0B',      # Amarillo
-                    'Negativo': '#FF006B'     # Magenta
+                social_colors = {
+                    'Facebook': '#1877F2',
+                    'Instagram': '#E4405F', 
+                    'X (Twitter)': '#1DA1F2',
+                    'TikTok': '#000000'
                 }
                 
-                # Crear DataFrame para plotly
+                # Crear gráfico con colores específicos
                 import plotly.express as px
                 
                 chart_data = pd.DataFrame({
-                    'Polaridad': pol_counts.index,
-                    'Cantidad': pol_counts.values
+                    'Red Social': red_counts.index,
+                    'Cantidad': red_counts.values
                 })
                 
                 fig = px.bar(
                     chart_data,
-                    x='Polaridad', 
+                    x='Red Social', 
                     y='Cantidad',
-                    color='Polaridad',
-                    color_discrete_map=sentiment_colors
+                    color='Red Social',
+                    color_discrete_map=social_colors
                 )
                 
                 fig.update_layout(
@@ -226,5 +222,43 @@ class DataTableManager:
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
+            
+        with col2:
+            st.write("**Distribución por Polaridad:**")
+            pol_counts = filtered_df['polaridad_display'].value_counts()
+            
+            # Usar los mismos colores que en visualizations.py
+            sentiment_colors = {
+                'Positivo': '#10B981',    # Verde
+                'Neutro': '#F59E0B',      # Amarillo
+                'Negativo': '#FF006B'     # Magenta
+            }
+            
+            # Crear DataFrame para plotly
+            import plotly.express as px
+            
+            chart_data = pd.DataFrame({
+                'Polaridad': pol_counts.index,
+                'Cantidad': pol_counts.values
+            })
+            
+            fig = px.bar(
+                chart_data,
+                x='Polaridad', 
+                y='Cantidad',
+                color='Polaridad',
+                color_discrete_map=sentiment_colors
+            )
+            
+            fig.update_layout(
+                showlegend=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white'),
+                xaxis_title="",
+                yaxis_title=""
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
         
         return filtered_df

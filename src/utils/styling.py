@@ -53,6 +53,21 @@ class StyleManager:
             font-family: 'Inter', sans-serif !important;
         }}
         
+        /* Aplicar Inter a gráficos y tablas */
+        .js-plotly-plot, .js-plotly-plot *, 
+        .stDataFrame, .stDataFrame *,
+        div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {{
+            font-family: 'Inter', sans-serif !important;
+        }}
+        
+        .stApp p, .stApp div, 
+        .stSubheader, .stSubheader *,
+        [data-testid="stHeader"],
+        .main-header p, .main-header div, .main-header span,
+        .element-container p, .element-container div {{
+            font-family: 'Inter', sans-serif !important;
+        }}
+        
         /* Sidebar styling */
         .css-1d391kg {{
             background: linear-gradient(180deg, var(--bg-secondary) 0%, #1e2532 100%);

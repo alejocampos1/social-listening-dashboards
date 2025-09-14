@@ -34,7 +34,7 @@ def main():
     
     # Sidebar con info del usuario y logout
     with st.sidebar:
-        st.title("📊 Proyecto OCDUL")
+        st.title("Proyecto OCDUL")
         st.write(f"**Usuario:** {user_info['user']['name']}")
         st.write(f"**Email:** {user_info['user']['email']}")
         st.divider()

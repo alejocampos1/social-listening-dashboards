@@ -72,7 +72,7 @@ class FilterManager:
             elif time_option == "Últimos 3 meses":
                 fecha_inicio = fecha_fin - timedelta(days=90)
             elif time_option == "Histórico Completo":
-                fecha_inicio = datetime(2020, 1, 1)
+                fecha_inicio = datetime(2025, 1, 1)
             
             st.sidebar.info(f"📅 {fecha_inicio.strftime('%Y-%m-%d')} a {fecha_fin.strftime('%Y-%m-%d')}")
         

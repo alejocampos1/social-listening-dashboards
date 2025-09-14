@@ -2,6 +2,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from .filters import FilterManager
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -50,6 +51,7 @@ class VisualizationManager:
             fig.update_layout(
                 title={
                     'text': 'Volumen de Menciones por Red Social',
+                    'xanchor': 'center',
                     'x': 0.5,
                     'font': {'size': 18, 'color': 'white'}
                 },
@@ -124,11 +126,12 @@ class VisualizationManager:
         fig.update_layout(
             title={
                 'text': 'Volumen de Menciones por Red Social',
+                'xanchor': 'center',
                 'x': 0.5,
                 'font': {'size': 18, 'color': 'white'}
             },
-            xaxis_title='Fecha',
-            yaxis_title='Volumen de Menciones',
+            xaxis_title='',
+            yaxis_title='',
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
@@ -168,6 +171,7 @@ class VisualizationManager:
             fig.update_layout(
                 title={
                     'text': 'Distribución de Polaridad',
+                    'xanchor': 'center',
                     'x': 0.5,
                     'font': {'size': 18, 'color': 'white'}
                 },
@@ -192,6 +196,7 @@ class VisualizationManager:
             fig.update_layout(
                 title={
                     'text': 'Distribución de Polaridad',
+                    'xanchor': 'center',
                     'x': 0.5,
                     'font': {'size': 18, 'color': 'white'}
                 },
@@ -234,6 +239,7 @@ class VisualizationManager:
             fig.update_layout(
                 title={
                     'text': 'Distribución de Polaridad',
+                    'xanchor': 'center',
                     'x': 0.5,
                     'font': {'size': 18, 'color': 'white'}
                 },
@@ -278,12 +284,13 @@ class VisualizationManager:
             title={
                 'text': 'Distribución de Polaridad',
                 'x': 0.5,
+                'xanchor': 'center',
                 'font': {'size': 18, 'color': 'white'}
             },
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
-            showlegend=True,
+            showlegend=False,
             legend=dict(
                 bgcolor='rgba(0,0,0,0.5)',
                 bordercolor='rgba(255,255,255,0.2)',
@@ -297,6 +304,30 @@ class VisualizationManager:
         )
         
         return fig
+    
+    def render_filters_summary(self, filter_manager):
+        """Renderiza un resumen de los filtros aplicados"""
+        summary = filter_manager.get_filter_summary()
+        filters = st.session_state.filters
+        
+        # Crear texto descriptivo de fechas
+        fecha_inicio_str = filters['fecha_inicio'].strftime('%d/%m/%Y')
+        fecha_fin_str = filters['fecha_fin'].strftime('%d/%m/%Y')
+        
+        # Crear texto de plataformas
+        if len(filters['origen']) == 4:
+            plataformas_texto = "todas las plataformas"
+        else:
+            plataformas_texto = ", ".join(filters['origen'])
+        
+        # Crear texto de polaridad
+        polaridad_texto = f"Sentimiento {filters['polaridad']}" if filters['polaridad'] != 'Todos' else "Todos los sentimientos"
+        
+        st.markdown(f"""
+        <small style='color: rgba(255,255,255,0.4); text-align: center; display: block; margin-top: 2rem;'>
+            Mostrando datos de {plataformas_texto} desde {fecha_inicio_str} hasta {fecha_fin_str} ({summary['date_range_days']} días) • {polaridad_texto}
+        </small>
+        """, unsafe_allow_html=True)
     
     def render_kpis(self, filters, df_completo):
         """Renderiza los KPIs principales usando datos compartidos"""
@@ -411,8 +442,8 @@ class VisualizationManager:
                 delta_color=sentiment_delta_color,
                 help="Puntuación de sentimiento promedio (-100 a +100)"
             )
-        
-    def render_visualizations(self, filters, df_completo):
+                
+    def render_visualizations(self, filters, df_completo, filter_manager):
         """Renderiza todas las visualizaciones usando datos reales"""
         
         if not filters['applied']:
@@ -422,6 +453,7 @@ class VisualizationManager:
         # KPIs principales
         st.subheader("📊 Métricas Principales")
         self.render_kpis(filters, df_completo)
+        self.render_filters_summary(filter_manager)
         
         st.divider()
         

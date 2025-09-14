@@ -6,7 +6,7 @@ from .filters import FilterManager
 from .tables import DataTableManager
 from .visualizations import VisualizationManager
 
-def render_dashboard_header(dashboard_info):
+def render_dashboard_header(dashboard_info, last_update_str="No disponible"):
     """Renderiza el header del dashboard con styling profesional"""
     
     # Header con styling personalizado
@@ -14,7 +14,7 @@ def render_dashboard_header(dashboard_info):
     <div class="main-header fade-in">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h1 class="gradient-title" style="margin: 0; font-size: 2.5rem;">
+                <h1 style="margin: 0; font-size: 2.5rem; color: white;">
                     {dashboard_info['title']}
                 </h1>
                 <p style="color: rgba(255,255,255,0.7); margin: 0.5rem 0 0 0; font-size: 1.1rem;">
@@ -28,9 +28,8 @@ def render_dashboard_header(dashboard_info):
                     border-radius: 8px;
                     border: 1px solid rgba(255,255,255,0.1);
                 ">
-                    <h4 style="color: #00D4FF; margin: 0; font-size: 0.9rem;">Última Actualización</h4>
-                    <p style="color: white; margin: 0.25rem 0 0 0; font-weight: 600;">Pendiente</p>
-                    <small style="color: rgba(255,255,255,0.6);">Timestamp del registro más reciente</small>
+                    <div style="color: #00D4FF; margin: 0; font-size: 0.9rem; font-weight: 600;">Última Actualización</div>
+                    <p style="color: white; margin: 0.25rem 0 0 0; font-weight: 600;">{last_update_str}</p>
                 </div>
             </div>
         </div>
@@ -39,55 +38,14 @@ def render_dashboard_header(dashboard_info):
     
     st.markdown(header_html, unsafe_allow_html=True)
 
-def render_filters_summary(filter_manager):
-    """Renderiza un resumen de los filtros aplicados"""
-    summary = filter_manager.get_filter_summary()
-    filters = st.session_state.filters
-    
-    if not summary['is_applied']:
-        st.info("🔍 Configure y aplique filtros para ver los datos")
-        return
-    
-    with st.expander("📋 Resumen de Filtros Aplicados", expanded=False):
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                label="Redes Sociales",
-                value=summary['total_origins'],
-                help="Número de plataformas seleccionadas"
-            )
-        
-        with col2:
-            st.metric(
-                label="Período (días)",
-                value=summary['date_range_days'],
-                help="Rango de fechas seleccionado"
-            )
-        
-        with col3:
-            st.metric(
-                label="Polaridad",
-                value=summary['polaridad'],
-                help="Filtro de sentimiento aplicado"
-            )
-        
-        with col4:
-            st.metric(
-                label="Estado",
-                value="✅ Aplicado",
-                help="Los filtros están activos"
-            )
-        
-        # Detalles de los filtros
-        st.write("**Plataformas seleccionadas:**", ", ".join(filters['origen']))
-        st.write(f"**Rango de fechas:** {filters['fecha_inicio'].strftime('%Y-%m-%d')} a {filters['fecha_fin'].strftime('%Y-%m-%d')}")
-
-def render_main_content(filter_manager, user_info, db_connection):
+def render_main_content(filter_manager, user_info, db_connection, header_placeholder):
     """Renderiza el contenido principal del dashboard"""
     filters = st.session_state.filters
     
-    # LOADING SCREEN - Solo si los filtros están aplicados
+    # Obtener alerta_id
+    alerta_id = user_info['dashboard']['alert_ids'][0]
+    
+    # LOADING SCREEN
     loading_container = st.empty()
     
     with loading_container.container():
@@ -104,14 +62,13 @@ def render_main_content(filter_manager, user_info, db_connection):
         
         status_text.text("Conectando a base de datos...")
         progress_bar.progress(25)
-        time.sleep(0.5)  # Simular tiempo de conexión
+        time.sleep(0.5)
         
         # QUERY REAL DURANTE EL LOADING
         status_text.text("Obteniendo datos...")
         progress_bar.progress(50)
         
         # Preparar parámetros de query
-        alerta_id = user_info['dashboard']['alert_ids'][0]
         sentiment_code = None
         if filters['polaridad'] != 'Todos':
             sentiment_mapping = {'Positivo': 'POS', 'Neutro': 'NEU', 'Negativo': 'NEG'}
@@ -127,6 +84,14 @@ def render_main_content(filter_manager, user_info, db_connection):
             limit=None
         )
         
+        # Obtener timestamp de última actualización
+        last_update = db_connection.get_last_update_timestamp(alerta_id)
+        last_update_str = last_update.strftime('%Y-%m-%d %H:%M:%S') if last_update else "No disponible"
+        
+        # ACTUALIZAR HEADER CON DATOS REALES
+        with header_placeholder.container():
+            render_dashboard_header(user_info['dashboard'], last_update_str)
+                    
         status_text.text("Procesando visualizaciones...")
         progress_bar.progress(75)
         time.sleep(0.3)
@@ -140,44 +105,39 @@ def render_main_content(filter_manager, user_info, db_connection):
     
     # Área de visualizaciones - usar datos compartidos
     viz_manager = VisualizationManager()
-    viz_manager.render_visualizations(filters, df_completo)
+    viz_manager.render_visualizations(filters, df_completo, filter_manager)
     
     # Tabla de registros - usar datos compartidos
     st.subheader("📋 Registros Recientes (Top 500)")
     table_manager = DataTableManager()
     df_resultado = table_manager.render_data_table(filters, df_completo)
     
-    # Resumen de filtros al final como pie de página
+    # Resumen de filtros al final
     st.divider()
-    with st.expander("📋 Resumen de Filtros Aplicados", expanded=False):
-        summary = filter_manager.get_filter_summary()
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Redes Sociales", summary['total_origins'])
-        with col2:
-            st.metric("Período (días)", summary['date_range_days'])
-        with col3:
-            st.metric("Polaridad", summary['polaridad'])
-        with col4:
-            st.metric("Estado", "✅ Aplicado")
-        
-        st.write("**Plataformas:** ", ", ".join(filters['origen']))
-        st.write(f"**Fechas:** {filters['fecha_inicio'].strftime('%Y-%m-%d')} a {filters['fecha_fin'].strftime('%Y-%m-%d')}")
+    current_year = datetime.now().year
+    st.markdown(f"""
+    <div style='text-align: center; color: rgba(255,255,255,0.4); margin-top: 2rem;'>
+        Copyright ©{current_year} - Proyecto OCDUL - Todos los derechos reservados.<br>
+        Los datos de este tablero y sus fuentes de origen están protegidos por acuerdos de confidencialidad y no pueden ser divulgados.
+    </div>
+    """, unsafe_allow_html=True)
 
 def render_dashboard(user_info, db_connection):
     """Función principal que renderiza todo el dashboard"""
     # Inicializar el filter manager
     filter_manager = FilterManager()
     
-    # Renderizar header
-    render_dashboard_header(user_info['dashboard'])
+    # Crear placeholder para header que se actualizará después
+    header_placeholder = st.empty()
+    
+    # Renderizar header inicial con valor temporal
+    with header_placeholder.container():
+        render_dashboard_header(user_info['dashboard'], "Actualizando...")
     
     # Renderizar filtros en sidebar
     filters = filter_manager.render_filters()
     
-    # Renderizar contenido principal
-    render_main_content(filter_manager, user_info, db_connection)
+    # Renderizar contenido principal (que actualizará el header)
+    render_main_content(filter_manager, user_info, db_connection, header_placeholder)
     
     return filter_manager
