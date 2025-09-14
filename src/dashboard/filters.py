@@ -10,7 +10,7 @@ class FilterManager:
         if 'filters' not in st.session_state:
             st.session_state.filters = {
                 'origen': ['Facebook', 'X (Twitter)', 'Instagram', 'TikTok'],
-                'fecha_inicio': datetime.now() - timedelta(days=30),
+                'fecha_inicio': datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0),
                 'fecha_fin': datetime.now(),
                 'polaridad': 'Todos',
                 'applied': True
@@ -36,7 +36,7 @@ class FilterManager:
         
         time_option = st.sidebar.selectbox(
             "Seleccione un rango de fechas",
-            ["Rango personalizado", "Últimos 7 días", "Últimos 30 días", "Últimos 3 meses"],
+            ["Rango personalizado", "Últimos 7 días", "Últimos 30 días", "Este mes", "Últimos 3 meses", "Histórico Completo"],
             key="filter_time_option"
         )
         
@@ -67,8 +67,12 @@ class FilterManager:
                 fecha_inicio = fecha_fin - timedelta(days=7)
             elif time_option == "Últimos 30 días":
                 fecha_inicio = fecha_fin - timedelta(days=30)
+            elif time_option == "Este mes":
+                fecha_inicio = fecha_fin.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             elif time_option == "Últimos 3 meses":
                 fecha_inicio = fecha_fin - timedelta(days=90)
+            elif time_option == "Histórico Completo":
+                fecha_inicio = datetime(2020, 1, 1)
             
             st.sidebar.info(f"📅 {fecha_inicio.strftime('%Y-%m-%d')} a {fecha_fin.strftime('%Y-%m-%d')}")
         

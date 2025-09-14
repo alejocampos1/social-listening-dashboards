@@ -167,31 +167,38 @@ def check_authentication():
 
 def show_login_form():
     """Muestra el formulario de login"""
-    st.title("🔐 Proyecto OCDUL")
-    st.subheader("Acceso a Dashboards de Social Listening")
+    st.markdown("<h1 style='text-align: center;'>🔐 Proyecto OCDUL</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Acceso a Dashboards de Social Listening</h3>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
     # Crear columnas para centrar el formulario
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
         with st.form("login_form"):
-            username = st.text_input("Usuario")
-            password = st.text_input("Contraseña", type="password")
-            submitted = st.form_submit_button("Iniciar Sesión")
+            st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+            username = st.text_input("Usuario", max_chars=50)
+            password = st.text_input("Contraseña", type="password", max_chars=50)
+            st.markdown("</div>", unsafe_allow_html=True)
             
-            if submitted:
-                auth_manager = AuthManager()
-                success, user_info = auth_manager.authenticate(username, password)
+            # Centrar el botón
+            col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+            with col_btn2:
+                submitted = st.form_submit_button("Iniciar Sesión", use_container_width=True)
                 
-                if success:
-                    # Registrar login en logs
-                    logger = UserLogger()
-                    logger.log_login(username, user_info)
+                if submitted:
+                    auth_manager = AuthManager()
+                    success, user_info = auth_manager.authenticate(username, password)
                     
-                    st.success("✅ Login exitoso")
-                    st.rerun()
-                else:
-                    st.error("❌ Usuario o contraseña incorrectos")
+                    if success:
+                        # Registrar login en logs
+                        logger = UserLogger()
+                        logger.log_login(username, user_info)
+                        
+                        st.success("✅ Login exitoso")
+                        st.rerun()
+                    else:
+                        st.error("❌ Usuario o contraseña incorrectos")
 
 def get_user_info():
     """Obtiene la información del usuario autenticado"""

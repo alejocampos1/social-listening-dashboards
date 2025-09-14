@@ -43,6 +43,15 @@ class StyleManager:
             background: linear-gradient(135deg, var(--bg-main) 0%, #1a1f2e 100%);
             font-family: 'Inter', sans-serif;
         }}
+
+        /* Aplicar Inter solo a contenido de texto, no a controles UI */
+        .stMarkdown, .stText, .stWrite, 
+        div[data-testid="metric-container"], 
+        .streamlit-expanderHeader,
+        h1, h2, h3, h4, h5, h6,
+        .stSelectbox label, .stMultiSelect label {{
+            font-family: 'Inter', sans-serif !important;
+        }}
         
         /* Sidebar styling */
         .css-1d391kg {{
