@@ -107,8 +107,10 @@ def render_main_content(filter_manager, user_info, db_connection, header_placeho
     viz_manager = VisualizationManager()
     viz_manager.render_visualizations(filters, df_completo, filter_manager)
     
+    st.divider()
+    
     # Tabla de registros - usar datos compartidos
-    st.subheader("📋 Registros Recientes (Top 500)")
+    st.subheader("📋 Tabla de Registros")
     table_manager = DataTableManager()
     df_resultado = table_manager.render_data_table(filters, df_completo)
     
@@ -122,7 +124,7 @@ def render_main_content(filter_manager, user_info, db_connection, header_placeho
     </div>
     """, unsafe_allow_html=True)
 
-def render_dashboard(user_info, db_connection):
+def render_dashboard(user_info, db_connection, super_editor_mode=False):
     """Función principal que renderiza todo el dashboard"""
     # Inicializar el filter manager
     filter_manager = FilterManager()
@@ -139,5 +141,32 @@ def render_dashboard(user_info, db_connection):
     
     # Renderizar contenido principal (que actualizará el header)
     render_main_content(filter_manager, user_info, db_connection, header_placeholder)
+    
+    # Super Editor si está activado
+    if super_editor_mode:
+        st.markdown("---")
+        
+        from src.editor.super_editor import SuperEditor
+        filters = st.session_state.filters
+        if filters['applied']:
+            alerta_id = user_info['dashboard']['alert_ids'][0]
+            sentiment_code = None
+            if filters['polaridad'] != 'Todos':
+                sentiment_mapping = {'Positivo': 'POS', 'Neutro': 'NEU', 'Negativo': 'NEG'}
+                sentiment_code = sentiment_mapping.get(filters['polaridad'])
+            
+            df_completo = db_connection.get_social_listening_data(
+                alerta_id=alerta_id,
+                origins=filters['origen'],
+                start_date=filters['fecha_inicio'],
+                end_date=filters['fecha_fin'],
+                sentiment=sentiment_code,
+                limit=None
+            )
+            
+            editor = SuperEditor()
+            editor.render_super_editor(filters, df_completo, user_info, db_connection)
+        else:
+            st.info("🔍 Aplique los filtros para cargar datos en el editor")
     
     return filter_manager

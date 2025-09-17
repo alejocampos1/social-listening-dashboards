@@ -107,9 +107,15 @@ class SocialListeningQueryBuilder:
         """Obtiene el nombre de la columna de autor para una tabla específica"""
         for platform, tables in self.table_mapping.items():
             if table_name in tables:
-                platform_key = f"author_{platform.lower().replace(' (twitter)', '_x').replace(' ', '_')}"
+                # Mapeo específico para cada plataforma
+                if platform == "X (Twitter)":
+                    platform_key = "author_x"
+                else:
+                    platform_key = f"author_{platform.lower().replace(' ', '_')}"
+                
                 if platform_key in self.column_mapping:
-                    return self.column_mapping[platform_key].get(table_name, 'NULL')
+                    result = self.column_mapping[platform_key].get(table_name, 'NULL')
+                    return result
         return 'NULL'
     
     def get_engagement_columns(self, table_name: str) -> Dict[str, str]:
@@ -147,19 +153,29 @@ class SocialListeningQueryBuilder:
         return engagement
     
     def build_unified_query(self, 
-                          alerta_id: int,
-                          origins: List[str],
-                          start_date: datetime,
-                          end_date: datetime,
-                          sentiment: Optional[str] = None,
-                          limit: int = 100) -> str:
+                        alerta_id: int,
+                        origins: List[str],
+                        start_date: datetime,
+                        end_date: datetime,
+                        sentiment: Optional[str] = None,
+                        limit: int = 100) -> str:
         """Construye una query unificada para obtener datos de social listening"""
+        
+        # Mapear valores de display a valores de BD
+        display_to_db = {
+            "Facebook": "Facebook",
+            "X (Twitter)": "X", 
+            "Instagram": "Instagram",
+            "TikTok": "TikTok"
+        }
         
         union_queries = []
         
-        for origin in origins:
-            if origin in self.table_mapping:
-                tables = self.table_mapping[origin]
+        for origin_display in origins:
+            if origin_display in self.table_mapping:
+                # Obtener valor de BD para esta red social
+                origin_db = display_to_db.get(origin_display, origin_display)
+                tables = self.table_mapping[origin_display]
                 
                 for table in tables:
                     # Obtener columnas específicas para esta tabla
@@ -194,7 +210,7 @@ class SocialListeningQueryBuilder:
                     union_queries.append(select_query)
         
         if not union_queries:
-            return None
+            return ""
         
         # Unir todas las queries
         final_query = " UNION ALL ".join(union_queries)
@@ -205,27 +221,37 @@ class SocialListeningQueryBuilder:
         """
 
         if limit is not None:
-            final_query += f"LIMIT {limit}"
+            final_query += f" LIMIT {limit}"
         
         return final_query
     
     def get_query_parameters(self,
-                           alerta_id: int,
-                           origins: List[str],
-                           start_date: datetime,
-                           end_date: datetime,
-                           sentiment: Optional[str] = None) -> List:
+                       alerta_id: int,
+                       origins: List[str],
+                       start_date: datetime,
+                       end_date: datetime,
+                       sentiment: Optional[str] = None) -> List:
         """Genera la lista de parámetros para la query"""
+        
+        # Mapear valores de display a valores de BD
+        display_to_db = {
+            "Facebook": "Facebook",
+            "X (Twitter)": "X", 
+            "Instagram": "Instagram",
+            "TikTok": "TikTok"
+        }
         
         params = []
         
-        for origin in origins:
-            if origin in self.table_mapping:
-                tables = self.table_mapping[origin]
+        for origin_display in origins:
+            if origin_display in self.table_mapping:
+                # Obtener valor de BD para esta red social
+                origin_db = display_to_db.get(origin_display, origin_display)
+                tables = self.table_mapping[origin_display]
                 
                 for table in tables:
-                    # Parámetros base para cada tabla
-                    table_params = [alerta_id, origin, start_date, end_date]
+                    # Parámetros base para cada tabla - usar valor de BD
+                    table_params = [alerta_id, origin_db, start_date, end_date]
                     
                     # Agregar parámetro de sentimiento si se especifica
                     if sentiment and sentiment in ['POS', 'NEU', 'NEG']:
@@ -235,116 +261,10 @@ class SocialListeningQueryBuilder:
         
         return params
     
-    def get_timeline_query(self,
-                          alerta_id: int,
-                          origins: List[str],
-                          start_date: datetime,
-                          end_date: datetime,
-                          sentiment: Optional[str] = None) -> Tuple[str, List]:
-        """Construye query para datos de timeline agrupados por día y origen"""
-        
-        union_queries = []
-        params = []
-        
-        for origin in origins:
-            if origin in self.table_mapping:
-                tables = self.table_mapping[origin]
-                
-                for table in tables:
-                    select_query = f"""
-                    SELECT 
-                        DATE(created_time) as fecha,
-                        origin,
-                        COUNT(*) as count
-                    FROM ocdul.{table}
-                    WHERE alerta_id = %s
-                        AND origin = %s
-                        AND created_time BETWEEN %s AND %s
-                    """
-                    
-                    # Parámetros para esta tabla
-                    table_params = [alerta_id, origin, start_date, end_date]
-                    
-                    if sentiment and sentiment in ['POS', 'NEU', 'NEG']:
-                        select_query += " AND sentiment_pred = %s"
-                        table_params.append(sentiment)
-                    
-                    select_query += " GROUP BY DATE(created_time), origin"
-                    
-                    union_queries.append(select_query)
-                    params.extend(table_params)
-        
-        if not union_queries:
-            return None, []
-        
-        # Unir y agrupar por fecha y origen
-        final_query = f"""
-        WITH combined_data AS (
-            {" UNION ALL ".join(union_queries)}
-        )
-        SELECT 
-            fecha,
-            origin,
-            SUM(count) as total_count
-        FROM combined_data
-        GROUP BY fecha, origin
-        ORDER BY fecha, origin
-        """
-        
-        return final_query, params
-    
-    def get_sentiment_query(self,
-                           alerta_id: int,
-                           origins: List[str],
-                           start_date: datetime,
-                           end_date: datetime) -> Tuple[str, List]:
-        """Construye query para distribución de sentimientos"""
-        
-        union_queries = []
-        params = []
-        
-        for origin in origins:
-            if origin in self.table_mapping:
-                tables = self.table_mapping[origin]
-                
-                for table in tables:
-                    select_query = f"""
-                    SELECT sentiment_pred
-                    FROM ocdul.{table}
-                    WHERE alerta_id = %s
-                        AND origin = %s
-                        AND created_time BETWEEN %s AND %s
-                        AND sentiment_pred IS NOT NULL
-                    """
-                    
-                    union_queries.append(select_query)
-                    params.extend([alerta_id, origin, start_date, end_date])
-        
-        if not union_queries:
-            return None, []
-        
-        final_query = f"""
-        WITH combined_data AS (
-            {" UNION ALL ".join(union_queries)}
-        )
-        SELECT 
-            sentiment_pred,
-            COUNT(*) as count
-        FROM combined_data
-        GROUP BY sentiment_pred
-        ORDER BY sentiment_pred
-        """
-        
-        return final_query, params
-    
-    def format_sentiment_for_display(self, sentiment_code: str) -> str:
-        """Convierte códigos de sentimiento a texto legible"""
-        return self.sentiment_mapping.get(sentiment_code, sentiment_code)
-    
     def get_tables_for_origins(self, origins: List[str]) -> List[str]:
         """Obtiene la lista de tablas necesarias para los orígenes especificados"""
         tables = []
         for origin in origins:
             if origin in self.table_mapping:
                 tables.extend(self.table_mapping[origin])
-        return list(set(tables))  # Eliminar duplicados
+        return list(set(tables))

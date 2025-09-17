@@ -21,15 +21,24 @@ class FilterManager:
         st.sidebar.header("🔍  Filtros")
         
         # Filtro de Origen
-        origen_options = ["Facebook", "X (Twitter)", "Instagram", "TikTok"]
-        st.sidebar.subheader("📡  Origen (Redes Sociales)")
-        selected_origen = st.sidebar.multiselect(
-            "Seleccione al menos una plataforma",
-            options=origen_options,
-            default=st.session_state.filters['origen'],
+        origen_options_display = ["Facebook", "X (Twitter)", "Instagram", "TikTok"]
+        origen_options_db = ["Facebook", "X", "Instagram", "TikTok"]
+
+        # Crear mapeo bidireccional
+        display_to_db = dict(zip(origen_options_display, origen_options_db))
+        db_to_display = dict(zip(origen_options_db, origen_options_display))
+
+        selected_origen_display = st.sidebar.multiselect(
+            "Origen (Redes Sociales)",
+            options=origen_options_display,
+            default=origen_options_display,  # Mostrar todas por defecto
             help="Selecciona las redes sociales a incluir",
-            key="filter_origen"
+            key="filter_origen",
+            on_change=None
         )
+
+        # Convertir selección de display a valores de BD
+        selected_origen_db = [display_to_db[origin] for origin in selected_origen_display]
         
         # Filtro de Timeline
         st.sidebar.subheader("📅  Fecha")
@@ -37,7 +46,8 @@ class FilterManager:
         time_option = st.sidebar.selectbox(
             "Seleccione un rango de fechas",
             ["Rango personalizado", "Últimos 7 días", "Últimos 30 días", "Este mes", "Últimos 3 meses", "Histórico Completo"],
-            key="filter_time_option"
+            key="filter_time_option",
+            on_change=None
         )
         
         # Manejar fechas según opción seleccionada
@@ -47,13 +57,15 @@ class FilterManager:
                 fecha_inicio = st.date_input(
                     "Desde",
                     value=st.session_state.filters['fecha_inicio'].date(),
-                    key="filter_fecha_inicio"
+                    key="filter_fecha_inicio",
+                    on_change=None
                 )
             with col2:
                 fecha_fin = st.date_input(
                     "Hasta",
                     value=st.session_state.filters['fecha_fin'].date(),
-                    key="filter_fecha_fin"
+                    key="filter_fecha_fin",
+                    on_change=None
                 )
             
             # Convertir a datetime
@@ -88,7 +100,8 @@ class FilterManager:
             "Sentimiento",
             options=polaridad_options,
             index=polaridad_options.index(st.session_state.filters['polaridad']),
-            key="filter_polaridad"
+            key="filter_polaridad",
+            on_change=None
         )
         
         # Botones de acción
@@ -112,13 +125,13 @@ class FilterManager:
         # Manejar acciones
         if apply_filters:
             # Validar que al menos una red social esté seleccionada
-            if not selected_origen:
+            if not selected_origen_display:
                 st.sidebar.error("❌ Selecciona al menos una red social")
                 return None
             
             # Actualizar filtros en session state
             st.session_state.filters = {
-                'origen': selected_origen,
+                'origen': selected_origen_display,
                 'fecha_inicio': fecha_inicio,
                 'fecha_fin': fecha_fin,
                 'polaridad': selected_polaridad,
@@ -130,6 +143,7 @@ class FilterManager:
             # Resetear a valores por defecto
             st.session_state.filters = {
                 'origen': ['Facebook', 'X (Twitter)', 'Instagram', 'TikTok'],
+                'origen_display': selected_origen_display,
                 'fecha_inicio': datetime.now() - timedelta(days=30),
                 'fecha_fin': datetime.now(),
                 'polaridad': 'Todos',

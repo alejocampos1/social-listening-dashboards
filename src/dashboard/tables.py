@@ -28,36 +28,30 @@ class DataTableManager:
         }
         df['polaridad_display'] = df['sentiment_pred'].map(sentiment_display_mapping).fillna('Desconocido')
         
-        # Calcular métricas de la tabla (sobre todos los datos)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Registros", f"{len(df):,}")
-        with col2:
-            if 'sentiment_confidence' in df.columns:
-                confidence_avg = df['sentiment_confidence'].mean()
-                st.metric("Confianza Promedio", f"{confidence_avg:.2f}")
-            else:
-                st.metric("Confianza Promedio", "N/A")
-        with col3:
-            if 'likes' in df.columns:
-                total_likes = df['likes'].sum()
-                st.metric("Total Likes", f"{total_likes:,}")
-            else:
-                st.metric("Total Likes", "N/A")
-        
-        # Filtros adicionales de la tabla
-        st.subheader("🔧 Filtros de Tabla")
-        
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            # Filtro por red social específica - usar todas las opciones disponibles
-            redes_en_data = filters['origen']  # Usar las mismas opciones del filtro principal
-            selected_red = st.selectbox(
+            # Mapear valores de BD a display para las opciones
+            db_to_display = {
+                'Facebook': 'Facebook',
+                'X': 'X (Twitter)', 
+                'Instagram': 'Instagram',
+                'TikTok': 'TikTok'
+            }
+            
+            # Obtener valores únicos reales de los datos
+            redes_en_data_db = df['origin'].unique().tolist()
+            redes_en_data_display = [db_to_display.get(red, red) for red in redes_en_data_db]
+            
+            selected_red_display = st.multiselect(
                 "Filtrar por Red Social",
-                options=['Todas'] + redes_en_data,
+                options=redes_en_data_display,
+                default=redes_en_data_display,
                 key="table_filter_red"
             )
+            
+            # Convertir selección de display a valor de BD
+            display_to_db = {v: k for k, v in db_to_display.items()}
         
         with col2:
             # Filtro por polaridad específica - usar todas las opciones disponibles
@@ -82,8 +76,11 @@ class DataTableManager:
         # Aplicar filtros adicionales
         filtered_df = df.copy()
         
-        if selected_red != 'Todas':
-            filtered_df = filtered_df[filtered_df['origin'] == selected_red]
+        if selected_red_display:  # Si hay selecciones
+            # Convertir las selecciones de display a valores de BD
+            display_to_db = {v: k for k, v in db_to_display.items()}
+            selected_red_db_list = [display_to_db.get(red, red) for red in selected_red_display if red is not None]
+            filtered_df = filtered_df[filtered_df['origin'].isin(selected_red_db_list)]
         
         if selected_pol != 'Todas':
             filtered_df = filtered_df[filtered_df['polaridad_display'] == selected_pol]
@@ -106,21 +103,15 @@ class DataTableManager:
         if len(filtered_df) != len(df):
             st.info(f"Mostrando {len(filtered_df)} de {len(df)} registros")
         
-        # Configurar display de la tabla
-        st.subheader("📋 Tabla de Datos")
-        
         # Opciones de visualización
-        col1, col2 = st.columns(2)
-        with col1:
-            show_full_content = st.checkbox("Mostrar contenido completo", value=False)
-        with col2:
-            rows_to_show = st.number_input("Filas a mostrar", min_value=10, max_value=500, value=100, step=10)
+        rows_to_show = st.number_input("Filas a mostrar", min_value=10, max_value=500, value=100, step=10)
+
         
         # Preparar DataFrame para display (limitar a muestra para performance)
         display_df = filtered_df.head(rows_to_show).copy()
         
-        # Truncar contenido si es necesario
-        if not show_full_content and 'text' in display_df.columns:
+        # Truncar contenido por defecto
+        if 'text' in display_df.columns:
             display_df['text'] = display_df['text'].apply(
                 lambda x: str(x)[:50] + "..." if len(str(x)) > 50 else str(x)
             )
@@ -179,6 +170,11 @@ class DataTableManager:
             column_config=column_config
         )
         
+        # Control de texto
+        show_full_content = st.checkbox("Mostrar texto completo", value=False)
+        if show_full_content:
+            st.info("💡 Para ver el texto completo, active la opción y actualice la página")
+        
         # Información adicional
         st.subheader("Estadísticas de la tabla")
         col1, col2 = st.columns(2)
@@ -192,7 +188,7 @@ class DataTableManager:
                 social_colors = {
                     'Facebook': '#1877F2',
                     'Instagram': '#E4405F', 
-                    'X (Twitter)': '#1DA1F2',
+                    'X': '#1DA1F2',
                     'TikTok': '#000000'
                 }
                 
@@ -221,7 +217,7 @@ class DataTableManager:
                     yaxis_title=""
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="chart_redes_sociales")
             
         with col2:
             st.write("**Distribución por Polaridad:**")
@@ -259,6 +255,6 @@ class DataTableManager:
                 yaxis_title=""
             )
             
-            st.plotly_chart(fig, use_container_width=True)
-        
+            st.plotly_chart(fig, use_container_width=True, key="chart_polaridad")
+            
         return filtered_df

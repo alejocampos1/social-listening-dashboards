@@ -78,17 +78,28 @@ class VisualizationManager:
         
         # Crear gráfico de líneas múltiples
         fig = go.Figure()
+
+        # Mapear valores de display a BD
+        display_to_db = {
+            "Facebook": "Facebook",
+            "X (Twitter)": "X", 
+            "Instagram": "Instagram",
+            "TikTok": "TikTok"
+        }
         
         for red_social in filters['origen']:
-            # Filtrar datos para esta red social
-            data_red = timeline_data[timeline_data['origin'] == red_social] if not timeline_data.empty else pd.DataFrame()
+            # Convertir a valor de BD para filtrar los datos
+            red_social_db = display_to_db.get(red_social, red_social)
+            
+            # Filtrar datos para esta red social (usando valor de BD)
+            data_red = timeline_data[timeline_data['origin'] == red_social_db] if not timeline_data.empty else pd.DataFrame()
             
             if not data_red.empty:
                 fig.add_trace(go.Scatter(
                     x=data_red['fecha'],
                     y=data_red['total_count'],
                     mode='lines+markers',
-                    name=red_social,
+                    name=red_social,  # Mostrar nombre de display
                     line=dict(
                         color=self.social_colors.get(red_social, self.color_palette['primary']),
                         width=3
@@ -466,12 +477,12 @@ class VisualizationManager:
             # Gráfico Timeline
             with st.spinner("Generando gráfico de timeline..."):
                 timeline_fig = self.create_timeline_chart(filters, df_completo)
-                st.plotly_chart(timeline_fig, use_container_width=True)
+                st.plotly_chart(timeline_fig, use_container_width=True, key="chart_timeline")
         
         with col2:
             # Gráfico Donut de Sentimientos
             with st.spinner("Generando gráfico de sentimientos..."):
                 sentiment_fig = self.create_sentiment_donut(filters, df_completo)
-                st.plotly_chart(sentiment_fig, use_container_width=True)
+                st.plotly_chart(sentiment_fig, use_container_width=True, key="chart_sentiment")
         
         return True

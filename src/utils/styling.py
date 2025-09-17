@@ -3,8 +3,8 @@ import streamlit as st
 class StyleManager:
     def __init__(self):
         self.primary_colors = {
-            'cyan': '#00D4FF',
-            'magenta': '#FF006B', 
+            'cyan': "#0483C3",
+            'magenta': "#A8012D", 
             'purple': '#8B5CF6',
             'green': '#10B981',
             'yellow': '#F59E0B'
@@ -103,19 +103,20 @@ class StyleManager:
         
         /* Botones personalizados */
         .stButton > button {{
-            background: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-purple) 100%);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3);
+            background: var(--primary-cyan) !important;
+            border: none !important;
+            border-radius: 8px !important;
+            color: white !important;
+            font-weight: 600 !important;
+            padding: 0.75rem 1.5rem !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 16px rgba(8, 145, 178, 0.3) !important;
         }}
         
         .stButton > button:hover {{
+            background: #0e7490;
             transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.5);
+            box-shadow: 0 8px 32px rgba(8, 145, 178, 0.5);
         }}
         
         /* Filtros sidebar */
@@ -277,6 +278,24 @@ class StyleManager:
                 padding: 1rem;
             }}
         }}
+        
+        /* Solo cambiar el color de los tags seleccionados en multiselect */
+        span[data-baseweb="tag"] {{
+            background-color: var(--primary-magenta) !important;
+        }}
+
+        /* Solo el texto dentro de los tags */
+        span[data-baseweb="tag"] span {{
+            color: white !important;
+        }}
+
+        /* El botón X de los tags */
+        span[data-baseweb="tag"] svg {{
+            color: white !important;
+        }}
+        
+        
+        
         </style>
         """
         

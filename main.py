@@ -37,11 +37,21 @@ def main():
         st.title("Proyecto OCDUL")
         st.write(f"**Usuario:** {user_info['user']['name']}")
         st.write(f"**Email:** {user_info['user']['email']}")
+        
+        # Control del Super Editor - solo mostrar si tiene permisos
+        super_editor_mode = False 
+        
+        if user_info['user'].get('super_editor_access', False):
+            super_editor_mode = st.checkbox("🛠️ Modo Super Editor", value=False)
+            
+            if super_editor_mode:
+                st.info("Modo Super Editor activado")
+        
         st.divider()
             
     # Renderizar dashboard completo
     db = DatabaseConnection()
-    filter_manager = render_dashboard(user_info, db)
+    filter_manager = render_dashboard(user_info, db, super_editor_mode)
 
 
 if __name__ == "__main__":

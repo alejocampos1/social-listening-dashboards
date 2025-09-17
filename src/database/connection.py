@@ -94,28 +94,6 @@ class DatabaseConnection:
         
         return self.execute_query(query, params)
 
-    def get_timeline_data(self, alerta_id, origins, start_date, end_date, sentiment=None):
-        """Obtiene datos para gráfico timeline agrupados por fecha"""
-        query, params = self.sql_builder.get_timeline_query(
-            alerta_id, origins, start_date, end_date, sentiment
-        )
-        
-        if not query:
-            return pd.DataFrame()
-        
-        return self.execute_query(query, params)
-
-    def get_sentiment_distribution(self, alerta_id, origins, start_date, end_date):
-        """Obtiene distribución de sentimientos"""
-        query, params = self.sql_builder.get_sentiment_query(
-            alerta_id, origins, start_date, end_date
-        )
-        
-        if not query:
-            return pd.DataFrame()
-        
-        return self.execute_query(query, params)
-
     def get_last_update_timestamp(self, alerta_id):
         """Obtiene el timestamp del registro más reciente para una alerta"""
         tables = self.sql_builder.get_tables_for_origins([
@@ -144,50 +122,77 @@ class DatabaseConnection:
         
         return None
     
-    def get_total_mentions_count(self, alerta_id, origins, start_date, end_date, sentiment=None):
-        """Obtiene el conteo total real de menciones sin límite"""
-        
-        # Convertir polaridad de filtro a código de BD si es necesario
-        sentiment_code = sentiment
-        
-        union_queries = []
-        params = []
-        
-        for origin in origins:
-            if origin in self.sql_builder.table_mapping:
-                tables = self.sql_builder.table_mapping[origin]
+    def update_sentiment(self, table_name: str, record_id: int, new_sentiment: str, confidence: float = 1.0):
+        """Actualiza el sentimiento de un registro específico"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
                 
-                for table in tables:
-                    select_query = f"""
-                    SELECT COUNT(*) as count
-                    FROM ocdul.{table}
-                    WHERE alerta_id = %s
-                        AND origin = %s
-                        AND created_time BETWEEN %s AND %s
-                    """
+                # Query para actualizar sentimiento y ajustar confianzas
+                query = f"""
+                UPDATE ocdul.{table_name}
+                SET sentiment_pred = %s,
+                    sentiment_confidence = %s
+                WHERE id = %s
+                """
+                
+                cursor.execute(query, (new_sentiment, confidence, record_id))
+                conn.commit()
+                
+                return True, f"Registro {record_id} actualizado exitosamente"
+                
+        except Exception as e:
+            return False, f"Error actualizando registro: {str(e)}"
+
+    def delete_record(self, table_name: str, record_id: int):
+        """Elimina un registro específico"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = f"DELETE FROM ocdul.{table_name} WHERE id = %s"
+                cursor.execute(query, (record_id,))
+                
+                if cursor.rowcount > 0:
+                    conn.commit()
+                    return True, f"Registro {record_id} eliminado exitosamente"
+                else:
+                    return False, f"No se encontró el registro {record_id}"
                     
-                    # Parámetros para esta tabla
-                    table_params = [alerta_id, origin, start_date, end_date]
-                    
-                    if sentiment_code and sentiment_code in ['POS', 'NEU', 'NEG']:
-                        select_query += " AND sentiment_pred = %s"
-                        table_params.append(sentiment_code)
-                    
-                    union_queries.append(select_query)
-                    params.extend(table_params)
-        
-        if not union_queries:
-            return 0
-        
-        # Sumar todos los conteos
-        final_query = f"""
-        SELECT SUM(count) as total_count
-        FROM ({' UNION ALL '.join(union_queries)}) as combined
-        """
-        
-        result = self.execute_query(final_query, params)
-        
-        if not result.empty and result.iloc[0]['total_count']:
-            return int(result.iloc[0]['total_count'])
-        
-        return 0
+        except Exception as e:
+            return False, f"Error eliminando registro: {str(e)}"
+
+    def log_editor_change(self, user_name: str, table_name: str, record_id: int, old_sentiment: str, new_sentiment: str):
+        """Registra cambios del super editor en logs"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Crear tabla de logs si no existe
+                create_table_query = """
+                CREATE TABLE IF NOT EXISTS ocdul.editor_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_name VARCHAR(255),
+                    table_name VARCHAR(255),
+                    record_id INTEGER,
+                    old_sentiment VARCHAR(10),
+                    new_sentiment VARCHAR(10),
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+                cursor.execute(create_table_query)
+                
+                # Insertar log
+                insert_query = """
+                INSERT INTO ocdul.editor_logs 
+                (user_name, table_name, record_id, old_sentiment, new_sentiment)
+                VALUES (%s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(insert_query, (user_name, table_name, record_id, old_sentiment, new_sentiment))
+                conn.commit()
+                
+                return True, "Cambio registrado en logs"
+                
+        except Exception as e:
+            return False, f"Error registrando en logs: {str(e)}"
