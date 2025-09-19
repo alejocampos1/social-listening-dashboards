@@ -5,6 +5,7 @@ from datetime import datetime
 from .filters import FilterManager
 from .tables import DataTableManager
 from .visualizations import VisualizationManager
+from src.utils.data_cache import DataCacheManager, get_cached_social_data, cache_social_data
 
 def render_dashboard_header(dashboard_info, last_update_str="No disponible"):
     """Renderiza el header del dashboard con styling profesional"""
@@ -75,14 +76,38 @@ def render_main_content(filter_manager, user_info, db_connection, header_placeho
             sentiment_code = sentiment_mapping.get(filters['polaridad'])
         
         # Query principal sin límite
-        df_completo = db_connection.get_social_listening_data(
+        # Intentar obtener datos del caché primero
+        cache_manager = DataCacheManager()
+        df_completo = get_cached_social_data(
             alerta_id=alerta_id,
             origins=filters['origen'],
             start_date=filters['fecha_inicio'],
             end_date=filters['fecha_fin'],
             sentiment=sentiment_code,
-            limit=None
+            cache_manager=cache_manager
         )
+
+        # Si no hay caché válido, ejecutar query y cachear resultado
+        if df_completo is None:
+            df_completo = db_connection.get_social_listening_data(
+                alerta_id=alerta_id,
+                origins=filters['origen'],
+                start_date=filters['fecha_inicio'],
+                end_date=filters['fecha_fin'],
+                sentiment=sentiment_code,
+                limit=None
+            )
+            
+            # Cachear los datos obtenidos
+            cache_social_data(
+                data=df_completo,
+                alerta_id=alerta_id,
+                origins=filters['origen'],
+                start_date=filters['fecha_inicio'],
+                end_date=filters['fecha_fin'],
+                sentiment=sentiment_code,
+                cache_manager=cache_manager
+            )
         
         # Obtener timestamp de última actualización
         last_update = db_connection.get_last_update_timestamp(alerta_id)
@@ -155,14 +180,25 @@ def render_dashboard(user_info, db_connection, super_editor_mode=False):
                 sentiment_mapping = {'Positivo': 'POS', 'Neutro': 'NEU', 'Negativo': 'NEG'}
                 sentiment_code = sentiment_mapping.get(filters['polaridad'])
             
-            df_completo = db_connection.get_social_listening_data(
+            # Usar datos cacheados en lugar de nueva query
+            df_completo = get_cached_social_data(
                 alerta_id=alerta_id,
                 origins=filters['origen'],
                 start_date=filters['fecha_inicio'],
                 end_date=filters['fecha_fin'],
-                sentiment=sentiment_code,
-                limit=None
+                sentiment=sentiment_code
             )
+
+            # Si por alguna razón no hay caché, hacer fallback a query directa
+            if df_completo is None:
+                df_completo = db_connection.get_social_listening_data(
+                    alerta_id=alerta_id,
+                    origins=filters['origen'],
+                    start_date=filters['fecha_inicio'],
+                    end_date=filters['fecha_fin'],
+                    sentiment=sentiment_code,
+                    limit=None
+                )
             
             editor = SuperEditor()
             editor.render_super_editor(filters, df_completo, user_info, db_connection)
