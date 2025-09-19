@@ -332,7 +332,7 @@ class StyleManager:
         <div style="display: flex; justify-content: center; align-items: center; height: 100px;">
             <div style="
                 border: 4px solid rgba(0, 212, 255, 0.1);
-                border-left: 4px solid #00D4FF;
+                border-left: 4px solid #0483C3;
                 border-radius: 50%;
                 width: 40px;
                 height: 40px;

@@ -104,24 +104,9 @@ class SuperEditor:
     
     def _render_editor_stats(self, df: pd.DataFrame):
         """Renderiza estadísticas del editor"""
-        col1, col2, col3, col4 = st.columns(4)
         
-        with col1:
-            st.metric("Total Registros", f"{len(df):,}")
-        
-        with col2:
-            queue_count = len(st.session_state.edit_queue)
-            st.metric("Cambios Pendientes", queue_count)
-        
-        with col3:
-            sentiment_dist = df['sentiment_display'].value_counts()
-            most_common = sentiment_dist.index[0] if not sentiment_dist.empty else "N/A"
-            st.metric("Sentimiento Predominante", str(most_common))
-        
-        with col4:
-            avg_confidence = df.get('sentiment_confidence', pd.Series([0])).mean()
-            st.metric("Confianza Promedio", f"{avg_confidence:.2f}")
-    
+        st.metric("Total Registros", f"{len(df):,}")
+
     def _render_editor_filters(self, df: pd.DataFrame) -> pd.DataFrame:
         """Renderiza filtros específicos del editor"""
         st.subheader("🔽 Filtros del Editor")
@@ -234,8 +219,8 @@ class SuperEditor:
         max_records = st.number_input(
             "Máximo de registros a mostrar", 
             min_value=10, 
-            max_value=200, 
-            value=50, 
+            max_value=500, 
+            value=100, 
             step=10
         )
         
@@ -273,6 +258,7 @@ class SuperEditor:
             table_df,
             use_container_width=True,
             hide_index=True,
+            height=1200,
             column_config={
                 'edit_id': st.column_config.NumberColumn('ID', width="small", disabled=True),
                 'created_time': st.column_config.DatetimeColumn('Fecha', width="medium", disabled=True),
@@ -299,8 +285,7 @@ class SuperEditor:
 
         # Detectar registros marcados para eliminar
         self._detect_and_queue_deletions(table_df, edited_df, df)
-    
-                    
+                  
     def _render_pending_changes(self, db_connection, user_info):
         """Renderiza la sección unificada de cambios pendientes"""
         st.subheader("📋 Cambios Pendientes")
@@ -340,7 +325,7 @@ class SuperEditor:
                 st.session_state.edit_queue = []
                 st.rerun()
             
-            if st.button("✅ APLICAR CAMBIOS", type="primary", use_container_width=True):
+            if st.button("✅ Aplicar Cambios", type="primary", use_container_width=True):
                 self._apply_changes_to_database(db_connection, user_info)
     
     def _detect_and_queue_deletions(self, original_df, edited_df, full_df):
@@ -363,7 +348,7 @@ class SuperEditor:
                 
                 queue_entry = {
                     'edit_id': edit_id,
-                    'record_id': record.get('id', edit_id),
+                    'record_id': int(record.get('id', edit_id)),
                     'table_name': record.get('table_source'),
                     'action': 'delete',
                     'current_sentiment': record['sentiment_display'],
@@ -385,8 +370,8 @@ class SuperEditor:
             # Crear entrada del queue
             queue_entry = {
                 'edit_id': edit_id,
-                'record_id': record.get('id', edit_id),
-                'table_name': record.get('table_source'),  # Usar table_source del SQL
+                'record_id': int(record.get('id', edit_id)),
+                'table_name': record.get('table_source'),
                 'current_sentiment': record['sentiment_display'],
                 'new_sentiment': new_sentiment,
                 'new_sentiment_code': self.reverse_sentiment_mapping[new_sentiment],
@@ -415,7 +400,7 @@ class SuperEditor:
     
     def _get_table_name(self, origin: str) -> str:
         """Obtiene el nombre de tabla basado en el origen"""
-        # Mapeo de origen a tabla - ajustar según tu estructura
+        # Mapeo de origen a tabla
         table_mapping = {
             'Facebook': 'posts_facebook',
             'Instagram': 'posts_instagram', 
@@ -484,7 +469,7 @@ class SuperEditor:
                 self._show_changes_preview()
         
         with col3:
-            if st.button("✅ APLICAR CAMBIOS", type="primary"):
+            if st.button("✅ Aplicar Cambios", type="primary"):
                 self._apply_changes_to_database(db_connection, user_info)
                 
     def _detect_and_queue_changes(self, original_df, edited_df, full_df):

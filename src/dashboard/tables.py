@@ -72,9 +72,45 @@ class DataTableManager:
                 options=sort_options,
                 key="table_sort"
             )
-        
+            
         # Aplicar filtros adicionales
         filtered_df = df.copy()
+        
+        # Filtros de fecha específicos para la tabla
+        st.write("**Filtro de Fecha:**")
+        col_date1, col_date2 = st.columns(2)
+
+        with col_date1:
+            # Obtener rango de fechas de los datos
+            min_date = df['created_time'].min().date() if not df.empty else datetime.now().date()
+            max_date = df['created_time'].max().date() if not df.empty else datetime.now().date()
+            
+            table_start_date = st.date_input(
+                "Desde",
+                value=min_date,
+                min_value=min_date,
+                max_value=max_date,
+                key="table_date_start"
+            )
+
+        with col_date2:
+            table_end_date = st.date_input(
+                "Hasta", 
+                value=max_date,
+                min_value=min_date,
+                max_value=max_date,
+                key="table_date_end"
+            )
+
+        # Aplicar filtro de fecha
+        if table_start_date and table_end_date:
+            start_datetime = pd.Timestamp(table_start_date)
+            end_datetime = pd.Timestamp(table_end_date) + pd.Timedelta(days=1)
+            
+            filtered_df = filtered_df[
+                (pd.to_datetime(filtered_df['created_time']) >= start_datetime) & 
+                (pd.to_datetime(filtered_df['created_time']) < end_datetime)
+            ]
         
         if selected_red_display:  # Si hay selecciones
             # Convertir las selecciones de display a valores de BD
@@ -102,6 +138,69 @@ class DataTableManager:
         # Mostrar información de registros filtrados
         if len(filtered_df) != len(df):
             st.info(f"Mostrando {len(filtered_df)} de {len(df)} registros")
+            
+            
+        # Botón de descarga - usar datos completos filtrados (sin límite de filas)
+        download_df = filtered_df.copy()
+
+        # Preparar datos para descarga
+        if not download_df.empty:
+            # Formatear para descarga
+            download_df_formatted = download_df.copy()
+            
+            # Renombrar columnas para descarga
+            column_rename = {
+                'id': 'ID',
+                'created_time': 'Fecha',
+                'origin': 'Red Social',
+                'author': 'Usuario',
+                'text': 'Contenido Completo',
+                'polaridad_display': 'Polaridad',
+                'sentiment_confidence': 'Confianza'
+            }
+            
+            # Agregar columnas numéricas si existen
+            if 'likes' in download_df_formatted.columns:
+                column_rename['likes'] = 'Likes'
+            if 'comments' in download_df_formatted.columns:
+                column_rename['comments'] = 'Comentarios'
+            if 'shares' in download_df_formatted.columns:
+                column_rename['shares'] = 'Shares'
+            
+            # Seleccionar y renombrar columnas
+            available_download_columns = [col for col in column_rename.keys() if col in download_df_formatted.columns]
+            download_df_final = download_df_formatted[available_download_columns]
+            download_df_final = download_df_final.rename(columns=column_rename)
+            
+            # Convertir a CSV
+            csv_data = download_df_final.to_csv(index=False)
+            
+            st.markdown("""
+            <style>
+            div[data-testid="stDownloadButton"] > button {
+                background-color: #0483C3 !important;
+                border-color: #0483C3 !important;
+            }
+            div[data-testid="stDownloadButton"] > button:hover {
+                background-color: #036A9F !important;
+                border-color: #036A9F !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Botón de descarga
+            st.download_button(
+                label=f"📥 Descargar datos filtrados ({len(download_df_final):,} registros)",
+                data=csv_data,
+                file_name=f"social_listening_data_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                type="primary",
+                use_container_width=True
+            )
+        else:
+            st.warning("No hay datos para descargar con los filtros aplicados")
+
+        st.divider()    
         
         # Opciones de visualización
         rows_to_show = st.number_input("Filas a mostrar", min_value=10, max_value=500, value=100, step=10)

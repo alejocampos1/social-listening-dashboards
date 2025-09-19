@@ -11,7 +11,7 @@ from src.auth.authenticator import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Proyecto OCDUL",
+    page_title="Proyecto OCD",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -34,7 +34,7 @@ def main():
     
     # Sidebar con info del usuario y logout
     with st.sidebar:
-        st.title("Proyecto OCDUL")
+        st.title("Proyecto OCD")
         st.write(f"**Usuario:** {user_info['user']['name']}")
         st.write(f"**Email:** {user_info['user']['email']}")
         

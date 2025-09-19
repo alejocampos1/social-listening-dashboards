@@ -119,7 +119,7 @@ def render_main_content(filter_manager, user_info, db_connection, header_placeho
     current_year = datetime.now().year
     st.markdown(f"""
     <div style='text-align: center; color: rgba(255,255,255,0.4); margin-top: 2rem;'>
-        Copyright ©{current_year} - Proyecto OCDUL - Todos los derechos reservados.<br>
+        Copyright ©{current_year} - Proyecto OCD - Todos los derechos reservados.<br>
         Los datos de este tablero y sus fuentes de origen están protegidos por acuerdos de confidencialidad y no pueden ser divulgados.
     </div>
     """, unsafe_allow_html=True)

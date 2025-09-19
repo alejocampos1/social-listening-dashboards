@@ -96,7 +96,7 @@ def check_authentication():
 
 def show_login_form():
     """Muestra el formulario de login"""
-    st.markdown("<h1 style='text-align: center;'>🔐 Proyecto OCDUL</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🔐 Proyecto OCD</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>Acceso a Dashboards de Social Listening</h3>", unsafe_allow_html=True)
     st.markdown("<br><br>", unsafe_allow_html=True)
     
