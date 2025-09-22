@@ -232,7 +232,7 @@ class SuperEditor:
         
         # Preparar columnas para display
         columns_to_show = [
-            'edit_id', 'created_time', 'origin', 'author', 
+            'edit_id', 'created_time', 'origin',
             'text', 'sentiment_display'
         ]
         
@@ -263,7 +263,6 @@ class SuperEditor:
                 'edit_id': st.column_config.NumberColumn('ID', width="small", disabled=True),
                 'created_time': st.column_config.DatetimeColumn('Fecha', width="medium", disabled=True),
                 'origin': st.column_config.TextColumn('Red Social', width="small", disabled=True),
-                'author': st.column_config.TextColumn('Usuario', width="medium", disabled=True),
                 'text': st.column_config.TextColumn('Contenido', width="large", disabled=True),
                 'sentiment_display': st.column_config.SelectboxColumn(
                     'Sentimiento',
