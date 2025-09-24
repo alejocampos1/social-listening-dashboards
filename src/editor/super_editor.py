@@ -111,16 +111,7 @@ class SuperEditor:
         """Renderiza filtros específicos del editor"""
         st.subheader("🔽 Filtros del Editor")
         
-        # Primera fila: Barra de búsqueda por ID
-        st.write("**Búsqueda por ID:**")
-        search_id = st.text_input(
-            "Buscar por ID específico",
-            placeholder="Ingrese el ID del registro a buscar",
-            help="Ingrese el ID exacto del registro que desea editar",
-            key="editor_search_id"
-        )
-        
-        # Segunda fila: Filtros generales
+        # Filtros generales
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -165,6 +156,15 @@ class SuperEditor:
                 default=available_sentiments,
                 key="editor_sentiment_filter"
             )
+        
+        # Primera fila: Barra de búsqueda por ID
+        st.write("**Búsqueda por ID:**")
+        search_id = st.text_input(
+            "Buscar por ID específico",
+            placeholder="Ingrese el ID del registro a buscar",
+            help="Ingrese el ID exacto del registro que desea editar",
+            key="editor_search_id"
+        )
         
         # Aplicar filtros
         filtered_df = df.copy()
