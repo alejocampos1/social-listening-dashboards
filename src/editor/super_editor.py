@@ -97,8 +97,8 @@ class SuperEditor:
         # Agregar columna de sentimiento legible
         df['sentiment_display'] = df['sentiment_pred'].map(self.sentiment_mapping).fillna('Desconocido')
         
-        # Agregar columna de ID único para tracking
-        df['edit_id'] = df.index
+        # Usar ID real de BD para consistencia con tabla principal
+        df['edit_id'] = df['id']
         
         return df
     
@@ -111,6 +111,16 @@ class SuperEditor:
         """Renderiza filtros específicos del editor"""
         st.subheader("🔽 Filtros del Editor")
         
+        # Primera fila: Barra de búsqueda por ID
+        st.write("**Búsqueda por ID:**")
+        search_id = st.text_input(
+            "Buscar por ID específico",
+            placeholder="Ingrese el ID del registro a buscar",
+            help="Ingrese el ID exacto del registro que desea editar",
+            key="editor_search_id"
+        )
+        
+        # Segunda fila: Filtros generales
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -159,6 +169,24 @@ class SuperEditor:
         # Aplicar filtros
         filtered_df = df.copy()
         
+        # Filtro de búsqueda por ID (tiene prioridad máxima)
+        if search_id and search_id.strip():
+            try:
+                search_id_int = int(search_id.strip())
+                id_filtered = filtered_df[filtered_df['edit_id'] == search_id_int]
+                
+                if not id_filtered.empty:
+                    st.success(f"✅ Encontrado 1 registro con ID {search_id_int}")
+                    return id_filtered
+                else:
+                    st.warning(f"⚠️ No se encontró ningún registro con ID {search_id_int}")
+                    # Continuar con otros filtros para mostrar resultados alternativos
+            except ValueError:
+                st.error("❌ Por favor ingrese un ID numérico válido")
+                # Continuar con otros filtros
+        
+        # Si no hay búsqueda por ID o no se encontró, aplicar filtros normales
+        
         # Filtro de fecha
         if len(date_range) == 2:
             start_date = pd.Timestamp(date_range[0])
@@ -175,6 +203,10 @@ class SuperEditor:
         # Filtro de sentimiento
         if selected_sentiments:
             filtered_df = filtered_df[filtered_df['sentiment_display'].isin(selected_sentiments)]
+        
+        # Mostrar información de filtros aplicados
+        if search_id and search_id.strip():
+            st.info(f"📊 Mostrando resultados de filtros generales (ID {search_id} no encontrado)")
         
         return pd.DataFrame(filtered_df)
     
@@ -343,6 +375,7 @@ class SuperEditor:
             
             for _, row in marked_for_deletion.iterrows():
                 edit_id = row['edit_id']
+                # Usar full_df para obtener datos completos del registro
                 record = full_df[full_df['edit_id'] == edit_id].iloc[0]
                 
                 queue_entry = {
@@ -363,7 +396,7 @@ class SuperEditor:
     def _add_to_queue(self, selected_ids: List[int], new_sentiment: str, df: pd.DataFrame):
         """Agrega cambios al queue"""
         for edit_id in selected_ids:
-            # Buscar el registro
+            # Buscar el registro usando el DataFrame pasado como parámetro
             record = df[df['edit_id'] == edit_id].iloc[0]
             
             # Crear entrada del queue
@@ -491,16 +524,15 @@ class SuperEditor:
             new_sentiment = row['sentiment_display']
             
             # Evitar duplicados en el queue
-            existing_ids = [q['edit_id'] for q in st.session_state.edit_queue]
+            existing_ids = [q['edit_id'] for q in st.session_state.edit_queue if q.get('action') != 'delete']
             if edit_id not in existing_ids:
-                # Buscar record más eficientemente
-                record = full_df[full_df['edit_id'] == edit_id].iloc[0]
+                # Usar full_df para obtener datos completos del registro
                 self._add_to_queue([edit_id], new_sentiment, full_df)
                 changes_detected += 1
         
         # Solo mostrar mensaje si hay cambios nuevos
         if changes_detected > 0:
-            st.toast(f"✅ {changes_detected} cambios agregados", icon="✅")
+            st.toast(f"{changes_detected} cambios agregados", icon="✅")
     
     def _apply_changes_to_database(self, db_connection, user_info: Dict):
         """Aplica los cambios a la base de datos"""
