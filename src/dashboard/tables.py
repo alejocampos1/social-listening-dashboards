@@ -224,18 +224,18 @@ class DataTableManager:
         }
         
         # Agregar columnas numéricas si existen
-        if 'likes' in display_df.columns:
-            display_df['likes'] = display_df['likes'].fillna(0).astype(int)
-            display_columns['likes'] = 'Likes'
-        
-        if 'comments' in display_df.columns:
-            display_df['comments'] = display_df['comments'].fillna(0).astype(int)
-            display_columns['comments'] = 'Comentarios'
-        
-        if 'shares' in display_df.columns:
-            display_df['shares'] = display_df['shares'].fillna(0).astype(int)
-            display_columns['shares'] = 'Shares'
-        
+#        if 'likes' in display_df.columns:
+#            display_df['likes'] = display_df['likes'].fillna(0).astype(int)
+#            display_columns['likes'] = 'Likes'
+#        
+#        if 'comments' in display_df.columns:
+#            display_df['comments'] = display_df['comments'].fillna(0).astype(int)
+#            display_columns['comments'] = 'Comentarios'
+#        
+#        if 'shares' in display_df.columns:
+#            display_df['shares'] = display_df['shares'].fillna(0).astype(int)
+#            display_columns['shares'] = 'Shares'
+#        
         if 'sentiment_confidence' in display_df.columns:
             display_df['confidence_formatted'] = display_df['sentiment_confidence'].apply(
                 lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A"
