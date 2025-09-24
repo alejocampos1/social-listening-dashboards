@@ -211,7 +211,7 @@ class DataTableManager:
         # Truncar contenido por defecto
         if 'text' in display_df.columns:
             display_df['text'] = display_df['text'].apply(
-                lambda x: str(x)[:50] + "..." if len(str(x)) > 50 else str(x)
+                lambda x: str(x)[:200] + "..." if len(str(x)) > 200 else str(x)
             )
         
         # Formatear columnas para display
@@ -268,9 +268,9 @@ class DataTableManager:
         )
         
         # Control de texto
-        show_full_content = st.checkbox("Mostrar texto completo", value=False)
-        if show_full_content:
-            st.info("💡 Para ver el texto completo, active la opción y actualice la página")
+#        show_full_content = st.checkbox("Mostrar texto completo", value=False)
+#        if show_full_content:
+#            st.info("💡 Para ver el texto completo, active la opción y actualice la página")
         
         # Información adicional
         st.subheader("Estadísticas de la tabla")
