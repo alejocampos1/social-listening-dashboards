@@ -157,6 +157,8 @@ class SuperEditor:
                 key="editor_sentiment_filter"
             )
         
+        st.divider()
+        
         # Primera fila: Barra de búsqueda por ID
         st.write("**Búsqueda por ID:**")
         search_id = st.text_input(
