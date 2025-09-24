@@ -65,8 +65,8 @@ class DataTableManager:
         with col3:
             # Ordenar por
             sort_options = ['Fecha (Reciente)', 'Fecha (Antigua)', 'Confianza (Alta)', 'Confianza (Baja)']
-            if 'likes' in df.columns:
-                sort_options.extend(['Likes (Alto)', 'Likes (Bajo)'])
+#            if 'likes' in df.columns:
+#                sort_options.extend(['Likes (Alto)', 'Likes (Bajo)'])
             sort_by = st.selectbox(
                 "Ordenar por",
                 options=sort_options,
