@@ -162,7 +162,7 @@ class SuperEditor:
         # Primera fila: Barra de búsqueda por ID
         st.write("**Búsqueda por ID:**")
         search_id = st.text_input(
-            "Buscar por ID específico",
+            "",
             placeholder="Ingrese el ID del registro a buscar",
             help="Ingrese el ID exacto del registro que desea editar",
             key="editor_search_id"
