@@ -153,7 +153,6 @@ class DataTableManager:
                 'id': 'ID',
                 'created_time': 'Fecha',
                 'origin': 'Red Social',
-                'author': 'Usuario',
                 'text': 'Contenido Completo',
                 'polaridad_display': 'Polaridad',
                 'sentiment_confidence': 'Confianza'
