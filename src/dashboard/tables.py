@@ -3,6 +3,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import random
 
+from src.utils.filter_utils import (
+    FilterProcessor, FilterMapper, FilterConstants, 
+    get_available_networks_from_data, get_available_sentiments_from_data,
+    get_available_content_types_from_data
+)
+
 class DataTableManager:
     def __init__(self):
         pass
@@ -28,32 +34,32 @@ class DataTableManager:
         }
         df['polaridad_display'] = df['sentiment_pred'].map(sentiment_display_mapping).fillna('Desconocido')
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            # Mapear valores de BD a display para las opciones
-            db_to_display = {
-                'Facebook': 'Facebook',
-                'X': 'X (Twitter)', 
-                'Instagram': 'Instagram',
-                'TikTok': 'TikTok'
-            }
-            
-            # Obtener valores únicos reales de los datos
-            redes_en_data_db = df['origin'].unique().tolist()
-            redes_en_data_display = [db_to_display.get(red, red) for red in redes_en_data_db]
+            # Usar mapeo de utilidades compartidas
+            available_networks = get_available_networks_from_data(df)
             
             selected_red_display = st.multiselect(
                 "Filtrar por Red Social",
-                options=redes_en_data_display,
-                default=redes_en_data_display,
+                options=available_networks,
+                default=available_networks,
                 key="table_filter_red"
             )
-            
-            # Convertir selección de display a valor de BD
-            display_to_db = {v: k for k, v in db_to_display.items()}
         
         with col2:
+            # Filtro por tipo de contenido
+            available_content_types = get_available_content_types_from_data(df)
+            
+            selected_content_types = st.multiselect(
+                "Filtrar por Tipo de Contenido",
+                options=available_content_types,
+                default=available_content_types,
+                key="table_filter_content_type"
+            )
+        
+        
+        with col3:
             # Filtro por polaridad específica - usar todas las opciones disponibles
             polaridades_en_data = ['Positivo', 'Neutro', 'Negativo']  # Opciones fijas completas
             selected_pol = st.selectbox(
@@ -62,7 +68,7 @@ class DataTableManager:
                 key="table_filter_pol"
             )
         
-        with col3:
+        with col4:
             # Ordenar por
             sort_options = ['Fecha (Reciente)', 'Fecha (Antigua)', 'Confianza (Alta)', 'Confianza (Baja)']
 #            if 'likes' in df.columns:
@@ -112,28 +118,15 @@ class DataTableManager:
                 (pd.to_datetime(filtered_df['created_time']) < end_datetime)
             ]
         
-        if selected_red_display:  # Si hay selecciones
-            # Convertir las selecciones de display a valores de BD
-            display_to_db = {v: k for k, v in db_to_display.items()}
-            selected_red_db_list = [display_to_db.get(red, red) for red in selected_red_display if red is not None]
-            filtered_df = filtered_df[filtered_df['origin'].isin(selected_red_db_list)]
-        
-        if selected_pol != 'Todas':
-            filtered_df = filtered_df[filtered_df['polaridad_display'] == selected_pol]
-        
-        # Aplicar ordenamiento
-        if sort_by == 'Fecha (Reciente)':
-            filtered_df = filtered_df.sort_values('created_time', ascending=False)
-        elif sort_by == 'Fecha (Antigua)':
-            filtered_df = filtered_df.sort_values('created_time', ascending=True)
-        elif sort_by == 'Confianza (Alta)' and 'sentiment_confidence' in filtered_df.columns:
-            filtered_df = filtered_df.sort_values('sentiment_confidence', ascending=False)
-        elif sort_by == 'Confianza (Baja)' and 'sentiment_confidence' in filtered_df.columns:
-            filtered_df = filtered_df.sort_values('sentiment_confidence', ascending=True)
-        elif sort_by == 'Likes (Alto)' and 'likes' in filtered_df.columns:
-            filtered_df = filtered_df.sort_values('likes', ascending=False)
-        elif sort_by == 'Likes (Bajo)' and 'likes' in filtered_df.columns:
-            filtered_df = filtered_df.sort_values('likes', ascending=True)
+        filtered_df = FilterProcessor.apply_network_filter(filtered_df, selected_red_display)
+        filtered_df = FilterProcessor.apply_content_type_filter(filtered_df, selected_content_types)
+        filtered_df = FilterProcessor.apply_sentiment_filter(filtered_df, selected_pol)
+        filtered_df = FilterProcessor.apply_date_filter(
+            filtered_df, 
+            pd.Timestamp(table_start_date), 
+            pd.Timestamp(table_end_date)
+        )
+        filtered_df = FilterProcessor.apply_sorting(filtered_df, sort_by)
         
         # Mostrar información de registros filtrados
         if len(filtered_df) != len(df):
