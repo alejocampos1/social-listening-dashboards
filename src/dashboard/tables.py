@@ -51,13 +51,11 @@ class DataTableManager:
             # Filtro por tipo de contenido
             available_content_types = get_available_content_types_from_data(df)
             
-            selected_content_types = st.multiselect(
+            selected_content_type = st.selectbox(
                 "Filtrar por Tipo de Contenido",
-                options=available_content_types,
-                default=available_content_types,
+                options=['Todos'] + available_content_types,
                 key="table_filter_content_type"
             )
-        
         
         with col3:
             # Filtro por polaridad específica - usar todas las opciones disponibles
@@ -119,7 +117,7 @@ class DataTableManager:
             ]
         
         filtered_df = FilterProcessor.apply_network_filter(filtered_df, selected_red_display)
-        filtered_df = FilterProcessor.apply_content_type_filter(filtered_df, selected_content_types)
+        filtered_df = FilterProcessor.apply_content_type_filter(filtered_df, selected_content_type)
         filtered_df = FilterProcessor.apply_sentiment_filter(filtered_df, selected_pol)
         filtered_df = FilterProcessor.apply_date_filter(
             filtered_df, 

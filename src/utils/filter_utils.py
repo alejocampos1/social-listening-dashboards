@@ -16,15 +16,15 @@ class FilterConstants:
     SOCIAL_NETWORKS_DB_TO_DISPLAY = {v: k for k, v in SOCIAL_NETWORKS_DISPLAY_TO_DB.items()}
     
     CONTENT_TYPE_MAPPING = {
-        'posts_facebook': 'Posts (Facebook)',
-        'comentarios_facebook': 'Comentarios (Facebook)',
-        'posts_instagram': 'Posts (Instagram)',
-        'comentarios_instagram': 'Comentarios (Instagram)',
-        'posts_x': 'Posts (X)',
+        'posts_facebook': 'Posts',
+        'comentarios_facebook': 'Comentarios',
+        'posts_instagram': 'Posts',
+        'comentarios_instagram': 'Comentarios',
+        'posts_x': 'Posts',
         'respuestas_x': 'Respuestas (X)',
         'quotes_x': 'Quotes (X)',
-        'posts_tiktok': 'Posts (TikTok)',
-        'comentarios_tiktok': 'Comentarios (TikTok)'
+        'posts_tiktok': 'Posts',
+        'comentarios_tiktok': 'Comentarios'
     }
     
     # Mapeo inverso para facilitar búsquedas
@@ -301,32 +301,23 @@ class FilterProcessor:
         return df_sorted
     
     @staticmethod
-    def apply_content_type_filter(df: pd.DataFrame, selected_content_types: List[str]) -> pd.DataFrame:
+    def apply_content_type_filter(df: pd.DataFrame, selected_content_type: str) -> pd.DataFrame:
         """
         Aplica filtro de tipo de contenido a un DataFrame
-        
-        Args:
-            df: DataFrame a filtrar
-            selected_content_types: Tipos de contenido seleccionados (formato display)
-            
-        Returns:
-            DataFrame filtrado
         """
-        if not selected_content_types or 'table_source' not in df.columns:
+        if selected_content_type == "Todos" or 'table_source' not in df.columns:
             return df
         
-        # Convertir tipos de contenido seleccionados a nombres de tabla
-        table_sources = []
-        for content_type in selected_content_types:
-            table_name = FilterConstants.CONTENT_TYPE_REVERSE_MAPPING.get(content_type)
-            if table_name:
-                table_sources.append(table_name)
+        # Encontrar todas las tablas que corresponden al tipo seleccionado
+        matching_tables = []
+        for table_name, content_type in FilterConstants.CONTENT_TYPE_MAPPING.items():
+            if content_type == selected_content_type:
+                matching_tables.append(table_name)
         
-        if not table_sources:
+        if not matching_tables:
             return df
         
-        return df[df['table_source'].isin(table_sources)]
-
+        return df[df['table_source'].isin(matching_tables)]
 
 class TimeRangeCalculator:
     """Calculador para rangos de tiempo predefinidos"""
@@ -423,13 +414,7 @@ def get_date_range_from_data(df: pd.DataFrame) -> Tuple[datetime, datetime]:
 
 def get_available_content_types_from_data(df: pd.DataFrame) -> List[str]:
     """
-    Obtiene los tipos de contenido disponibles en un DataFrame
-    
-    Args:
-        df: DataFrame con datos
-        
-    Returns:
-        Lista de tipos de contenido en formato display
+    Obtiene los tipos de contenido únicos disponibles en un DataFrame
     """
     if df.empty or 'table_source' not in df.columns:
         return []
@@ -437,13 +422,13 @@ def get_available_content_types_from_data(df: pd.DataFrame) -> List[str]:
     unique_table_sources = df['table_source'].unique().tolist()
     
     # Convertir nombres de tabla a tipos de contenido display
-    available_types = []
+    available_types = set()  # Usar set para eliminar duplicados
     for table_source in unique_table_sources:
         content_type = FilterConstants.CONTENT_TYPE_MAPPING.get(table_source)
         if content_type:
-            available_types.append(content_type)
+            available_types.add(content_type)
     
-    return sorted(available_types)  # Ordenar alfabéticamente
+    return sorted(list(available_types))
 
 
 def get_content_type_counts_from_data(df: pd.DataFrame) -> Dict[str, int]:
