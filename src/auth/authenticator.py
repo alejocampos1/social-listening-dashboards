@@ -78,6 +78,10 @@ class AuthManager:
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
+        
+        # Limpiar token de URL
+        if 'session' in st.query_params:
+            del st.query_params['session']
 
 
 def check_authentication():

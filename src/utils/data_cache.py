@@ -21,8 +21,8 @@ class DataCacheManager:
             st.session_state.data_cache = {}
     
     def generate_cache_key(self, alerta_id: int, origins: List[str], 
-                          start_date: datetime, end_date: datetime, 
-                          sentiment: Optional[str] = None) -> str:
+                      start_date: datetime, end_date: datetime, 
+                      sentiment: Optional[str] = None) -> str:
         """
         Genera una clave única para el caché basada en los parámetros de consulta
         
@@ -36,8 +36,12 @@ class DataCacheManager:
         Returns:
             Clave hash única para estos parámetros
         """
+        # Agregar username para hacer caché único por usuario
+        username = st.session_state.get('username', 'anonymous')
+        
         # Crear string con todos los parámetros
         cache_params = {
+            'username': username,  # NUEVO - separa caché por usuario
             'alerta_id': alerta_id,
             'origins': sorted(origins),  # Ordenar para consistencia
             'start_date': start_date.isoformat(),

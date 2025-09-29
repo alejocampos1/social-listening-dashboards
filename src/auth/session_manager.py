@@ -44,6 +44,10 @@ class SessionManager:
         
         # Guardar token en session_state para referencia
         st.session_state.session_token = token
+        
+        # Agregar token a URL para persistir entre recargas
+        st.query_params['session'] = token
+        
         return token
     
     def load_session(self, token):
@@ -77,27 +81,6 @@ class SessionManager:
         
         return True
     
-    def find_valid_session_for_page(self):
-        """Busca una sesión válida activa (para recuperar después de reload)"""
-        current_time = time.time()
-        
-        for session_file in self.sessions_dir.glob("*.json"):
-            try:
-                with open(session_file, 'r') as f:
-                    session_data = json.load(f)
-                
-                last_activity = session_data.get('last_activity', 0)
-                
-                # Si la sesión no ha expirado, usarla
-                if current_time - last_activity <= self.session_timeout:
-                    token = session_data.get('token')
-                    return token, session_data
-                    
-            except:
-                continue
-        
-        return None, None
-    
     def update_activity(self, token):
         """Actualiza timestamp de actividad"""
         session_data = self.load_session(token)
@@ -122,11 +105,15 @@ class SessionManager:
         """Intenta restaurar sesión válida al cargar la página"""
         token = st.session_state.get('session_token')
         
-        # Si no hay token en session_state, buscar sesión activa
+        # Si no hay token en session_state, buscar en query params
         if not token:
-            token, session_data = self.find_valid_session_for_page()
+            query_params = st.query_params
+            token = query_params.get('session')
+            
             if not token:
                 return False
+                
+            session_data = self.load_session(token)
         else:
             session_data = self.load_session(token)
         
@@ -135,7 +122,10 @@ class SessionManager:
             st.session_state.authenticated = True
             st.session_state.user_info = session_data['user_info']
             st.session_state.username = session_data['username']
-            st.session_state.session_token = token  # Importante: restaurar el token
+            st.session_state.session_token = token
+            
+            # Agregar token a URL para persistir
+            st.query_params['session'] = token
             
             # Actualizar actividad
             self.update_activity(token)
