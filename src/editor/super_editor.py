@@ -604,18 +604,27 @@ class SuperEditor:
                         error_count += 1
                         st.error(f"Error en cambio {change['edit_id']}: {str(e)}")
                 
-                # Limpiar queue y tabla editable
-                st.session_state.edit_queue = []
-                if 'sentiment_editor_table' in st.session_state:
-                    del st.session_state['sentiment_editor_table']
-                
-                # Mostrar resultados
+                # Invalidar caché si hubo cambios exitosos
                 if success_count > 0:
+                    from src.utils.data_cache import invalidate_social_cache
+                    
+                    # Obtener alerta_id del usuario
+                    alerta_id = user_info['dashboard']['alert_ids'][0]
+                    
+                    # Invalidar todo el caché de esta alerta
+                    invalidate_social_cache(alerta_id)
+                    
                     st.success(f"✅ {success_count} cambios aplicados exitosamente")
                 
                 if error_count > 0:
                     st.error(f"❌ {error_count} cambios fallaron")
                 
+                # Limpiar queue y tabla editable
+                st.session_state.edit_queue = []
+                if 'sentiment_editor_table' in st.session_state:
+                    del st.session_state['sentiment_editor_table']
+                
+                # Recargar la página con datos frescos
                 st.rerun()
                 
         except Exception as e:
