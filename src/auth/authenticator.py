@@ -38,6 +38,11 @@ class AuthManager:
                         'dashboard_id': dashboard_id
                     }
                     
+                    # Si es super usuario, agregar lista de dashboards disponibles
+                    if user_data.get('super_user_access', False):
+                        user_info['available_dashboards'] = list(dashboards.keys())
+                        user_info['all_dashboards'] = dashboards  # Para acceso completo
+                    
                     # Guardar sesión persistente
                     session_token = self.session_manager.save_session(username, user_info)
                     
