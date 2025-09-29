@@ -145,17 +145,101 @@ class DatabaseConnection:
             return False, f"Error actualizando registro: {str(e)}"
 
     def delete_record(self, table_name: str, record_id: int):
-        """Elimina un registro específico"""
+        """Elimina un registro específico de ocdul y opcionalmente de RAW"""
+        
+        # Mapeo de origen a esquema RAW
+        schema_mapping = {
+            'facebook': 'CONSULTAS_FB_RAW',
+            'instagram': 'CONSULTAS_IG_RAW',
+            'x': 'CONSULTAS_X_RAW',
+            'tiktok': 'CONSULTAS_TK_RAW'
+        }
+        
+        # Mapeo de tabla a columna ID original
+        id_column_mapping = {
+            'posts_facebook': 'id_post_original',
+            'posts_instagram': 'id_post_original',
+            'posts_x': 'id_post_original',
+            'posts_tiktok': 'id_post_original',
+            'comentarios_facebook': 'id_comentario_original',
+            'comentarios_instagram': 'id_comentario_original',
+            'comentarios_tiktok': 'id_comentario_original',
+            'respuestas_x': 'id_respuesta_original',
+            'quotes_x': 'id_quote_original'
+        }
+        
+        # Mapeo de tabla ocdul a tabla RAW
+        raw_table_mapping = {
+            'posts_facebook': 'posts',
+            'posts_instagram': 'posts',
+            'posts_x': 'posts',
+            'posts_tiktok': 'posts',
+            'comentarios_facebook': 'comentarios',
+            'comentarios_instagram': 'comentarios',
+            'comentarios_tiktok': 'comentarios',
+            'respuestas_x': 'respuestas',
+            'quotes_x': 'quotes'
+        }
+        
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                query = f"DELETE FROM ocdul.{table_name} WHERE id = %s"
-                cursor.execute(query, (record_id,))
+                # 1. Obtener el ID original y origen del registro
+                id_column = id_column_mapping.get(table_name)
+                raw_deleted = False
+                
+                if id_column:
+                    # Obtener ID original y origen
+                    query = f"""
+                    SELECT {id_column}, origin 
+                    FROM ocdul.{table_name} 
+                    WHERE id = %s
+                    """
+                    cursor.execute(query, (record_id,))
+                    result = cursor.fetchone()
+                    
+                    if result and result[0] is not None:  # ID original existe
+                        id_original = result[0]
+                        origin = result[1].lower() if result[1] else None
+                        
+                        # 2. Intentar borrar de RAW si tenemos la info necesaria
+                        if origin in schema_mapping and table_name in raw_table_mapping:
+                            schema_raw = schema_mapping[origin]
+                            tabla_raw = raw_table_mapping[table_name]
+                            
+                            # Determinar columna ID en tabla RAW
+                            id_column_raw = {
+                                'posts': 'id_post',
+                                'comentarios': 'id_comentario',
+                                'respuestas': 'id_respuesta',
+                                'quotes': 'id_quote'
+                            }.get(tabla_raw)
+                            
+                            if id_column_raw:
+                                try:
+                                    query_raw = f"""
+                                    DELETE FROM {schema_raw}.{tabla_raw} 
+                                    WHERE {id_column_raw} = %s
+                                    """
+                                    cursor.execute(query_raw, (id_original,))
+                                    raw_deleted = cursor.rowcount > 0
+                                except Exception as e:
+                                    # Log pero no fallar
+                                    print(f"No se pudo borrar de RAW: {e}")
+                
+                # 3. Borrar de ocdul
+                query_ocdul = f"DELETE FROM ocdul.{table_name} WHERE id = %s"
+                cursor.execute(query_ocdul, (record_id,))
                 
                 if cursor.rowcount > 0:
                     conn.commit()
-                    return True, f"Registro {record_id} eliminado exitosamente"
+                    
+                    # Mensaje informativo
+                    if raw_deleted:
+                        return True, f"Registro {record_id} eliminado de ocdul y RAW"
+                    else:
+                        return True, f"Registro {record_id} eliminado de ocdul"
                 else:
                     return False, f"No se encontró el registro {record_id}"
                     
@@ -196,3 +280,25 @@ class DatabaseConnection:
                 
         except Exception as e:
             return False, f"Error registrando en logs: {str(e)}"
+        
+    def log_user_access(self, username: str, user_name: str, email: str, 
+                    action: str, dashboard_id: str, dashboard_title: str):
+        """Registra accesos de usuarios en la base de datos"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = """
+                INSERT INTO ocdul.user_access_logs 
+                (username, user_name, email, action, dashboard_id, dashboard_title)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(query, (username, user_name, email, action, 
+                                    dashboard_id, dashboard_title))
+                conn.commit()
+                
+                return True, "Log registrado exitosamente"
+                
+        except Exception as e:
+            return False, f"Error registrando log: {str(e)}"

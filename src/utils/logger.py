@@ -4,12 +4,15 @@ from datetime import datetime
 from pathlib import Path
 import streamlit as st
 
+from src.database.connection import DatabaseConnection
+
 class UserLogger:
     def __init__(self):
         self.log_file = Path("logs/user_activity.log")
         self.json_log_file = Path("logs/user_activity.json")
         self._ensure_log_directory()
         self._setup_logging()
+        self.db_connection = DatabaseConnection()
     
     def _ensure_log_directory(self):
         """Crea el directorio de logs si no existe"""
@@ -39,46 +42,27 @@ class UserLogger:
             self.logger.addHandler(file_handler)
     
     def log_login(self, username, user_info):
-        """Registra un login exitoso"""
-        timestamp = datetime.now().isoformat()
-        
-        log_entry = {
-            "timestamp": timestamp,
-            "action": "LOGIN",
-            "username": username,
-            "user_name": user_info['user']['name'],
-            "email": user_info['user']['email'],
-            "dashboard_id": user_info['dashboard_id'],
-            "dashboard_title": user_info['dashboard']['title']
-        }
-        
-        # Log en formato texto
-        self.logger.info(f"LOGIN - {username} ({user_info['user']['name']}) - {user_info['dashboard']['title']}")
-        
-        # Log en formato JSON
-        self._append_json_log(log_entry)
+        """Registra login en BD"""
+        self.db_connection.log_user_access(
+            username=username,
+            user_name=user_info['user']['name'],
+            email=user_info['user']['email'],
+            action="LOGIN",
+            dashboard_id=user_info['dashboard_id'],
+            dashboard_title=user_info['dashboard']['title']
+        )
     
     def log_logout(self, username, user_info=None):
-        """Registra un logout"""
-        timestamp = datetime.now().isoformat()
-        
-        log_entry = {
-            "timestamp": timestamp,
-            "action": "LOGOUT",
-            "username": username
-        }
-        
+        """Registra logout en BD"""
         if user_info:
-            log_entry.update({
-                "user_name": user_info['user']['name'],
-                "dashboard_id": user_info['dashboard_id']
-            })
-        
-        # Log en formato texto
-        self.logger.info(f"LOGOUT - {username}")
-        
-        # Log en formato JSON
-        self._append_json_log(log_entry)
+            self.db_connection.log_user_access(
+                username=username,
+                user_name=user_info['user']['name'],
+                email=user_info['user']['email'],
+                action="LOGOUT",
+                dashboard_id=user_info['dashboard_id'],
+                dashboard_title=user_info['dashboard'].get('title', '')
+            )
     
     def _append_json_log(self, log_entry):
         """Agrega una entrada al log JSON"""
