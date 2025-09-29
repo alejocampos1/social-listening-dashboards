@@ -578,12 +578,13 @@ class SuperEditor:
                                 st.error(f"Error eliminando registro {change['edit_id']}: {message}")
                         
                         else:
-                            # Actualizar sentimiento (código existente)
+                            # Actualizar sentimiento
                             success, message = db_connection.update_sentiment(
                                 table_name=change['table_name'],
                                 record_id=change['record_id'],
                                 new_sentiment=change['new_sentiment_code'],
-                                confidence=1.0
+                                confidence=1.0,
+                                user_name=user_info['user']['name']
                             )
                             
                             if success:

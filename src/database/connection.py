@@ -122,23 +122,72 @@ class DatabaseConnection:
         
         return None
     
-    def update_sentiment(self, table_name: str, record_id: int, new_sentiment: str, confidence: float = 1.0):
-        """Actualiza el sentimiento de un registro específico"""
+    def update_sentiment(self, table_name: str, record_id: int, new_sentiment: str, 
+                    confidence: float = 1.0, user_name: str = 'super_editor'):
+        """Actualiza el sentimiento de un registro específico y guarda en correcciones"""
+        
+        # Mapeo de tabla a columna ID original
+        id_column_mapping = {
+            'posts_facebook': 'id_post_original',
+            'posts_instagram': 'id_post_original',
+            'posts_x': 'id_post_original',
+            'posts_tiktok': 'id_post_original',
+            'comentarios_facebook': 'id_comentario_original',
+            'comentarios_instagram': 'id_comentario_original',
+            'comentarios_tiktok': 'id_comentario_original',
+            'respuestas_x': 'id_respuesta_original',
+            'quotes_x': 'id_quote_original'
+        }
+        
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Query para actualizar sentimiento y ajustar confianzas
-                query = f"""
+                # Determinar columna ID original
+                id_column = id_column_mapping.get(table_name, 'id')
+                
+                # Obtener datos actuales
+                query_select = f"""
+                SELECT sentiment_pred, sentiment_confidence, text, origin, {id_column}
+                FROM ocdul.{table_name}
+                WHERE id = %s
+                """
+                cursor.execute(query_select, (record_id,))
+                original_data = cursor.fetchone()
+                
+                if not original_data:
+                    return False, f"No se encontró el registro {record_id}"
+                
+                # Actualizar sentimiento
+                query_update = f"""
                 UPDATE ocdul.{table_name}
                 SET sentiment_pred = %s,
                     sentiment_confidence = %s
                 WHERE id = %s
                 """
+                cursor.execute(query_update, (new_sentiment, confidence, record_id))
                 
-                cursor.execute(query, (new_sentiment, confidence, record_id))
+                # Guardar en correcciones solo si cambió
+                if original_data[0] != new_sentiment:
+                    query_correction = """
+                    INSERT INTO ocdul.sentiment_corrections 
+                    (table_source, record_id, id_original, text, origin,
+                    sentiment_original, confidence_original, sentiment_corrected, corrected_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    cursor.execute(query_correction, (
+                        table_name,
+                        record_id,
+                        original_data[4],  # id_original
+                        original_data[2],  # text
+                        original_data[3],  # origin
+                        original_data[0],  # sentiment_original
+                        original_data[1],  # confidence_original
+                        new_sentiment,
+                        user_name
+                    ))
+                
                 conn.commit()
-                
                 return True, f"Registro {record_id} actualizado exitosamente"
                 
         except Exception as e:
