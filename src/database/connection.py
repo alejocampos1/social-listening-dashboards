@@ -185,62 +185,74 @@ class DatabaseConnection:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # 1. Obtener el ID original y origen del registro
+                # Variables para tracking
                 id_column = id_column_mapping.get(table_name)
                 raw_deleted = False
                 
                 if id_column:
-                    # Obtener ID original y origen
-                    query = f"""
-                    SELECT {id_column}, origin 
-                    FROM ocdul.{table_name} 
-                    WHERE id = %s
-                    """
-                    cursor.execute(query, (record_id,))
-                    result = cursor.fetchone()
+                    # Crear savepoint para manejar errores en SELECT
+                    cursor.execute("SAVEPOINT before_select")
                     
-                    if result and result[0] is not None:  # ID original existe
-                        id_original = result[0]
-                        origin = result[1].lower() if result[1] else None
+                    try:
+                        query = f"""
+                        SELECT {id_column}, origin 
+                        FROM ocdul.{table_name} 
+                        WHERE id = %s
+                        """
+                        cursor.execute(query, (record_id,))
+                        result = cursor.fetchone()
                         
-                        # 2. Intentar borrar de RAW si tenemos la info necesaria
-                        if origin in schema_mapping and table_name in raw_table_mapping:
-                            schema_raw = schema_mapping[origin]
-                            tabla_raw = raw_table_mapping[table_name]
+                        if result and result[0] is not None:
+                            id_original = result[0]
+                            origin = result[1].lower() if result[1] else None
                             
-                            # Determinar columna ID en tabla RAW
-                            id_column_raw = {
-                                'posts': 'id_post',
-                                'comentarios': 'id_comentario',
-                                'respuestas': 'id_respuesta',
-                                'quotes': 'id_quote'
-                            }.get(tabla_raw)
-                            
-                            if id_column_raw:
-                                try:
-                                    query_raw = f"""
-                                    DELETE FROM {schema_raw}.{tabla_raw} 
-                                    WHERE {id_column_raw} = %s
-                                    """
-                                    cursor.execute(query_raw, (id_original,))
-                                    raw_deleted = cursor.rowcount > 0
-                                except Exception as e:
-                                    # Log pero no fallar
-                                    print(f"No se pudo borrar de RAW: {e}")
+                            if origin in schema_mapping and table_name in raw_table_mapping:
+                                schema_raw = schema_mapping[origin]
+                                tabla_raw = raw_table_mapping[table_name]
+                                
+                                id_column_raw = {
+                                    'posts': 'id_post',
+                                    'comentarios': 'id_comentario',
+                                    'respuestas': 'id_respuesta',
+                                    'quotes': 'id_quote'
+                                }.get(tabla_raw)
+                                
+                                if id_column_raw:
+                                    # Crear savepoint antes de intentar borrar de RAW
+                                    cursor.execute("SAVEPOINT before_raw_delete")
+                                    
+                                    try:
+                                        query_raw = f"""
+                                        DELETE FROM {schema_raw}.{tabla_raw} 
+                                        WHERE {id_column_raw} = %s
+                                        """
+                                        cursor.execute(query_raw, (id_original,))
+                                        raw_deleted = cursor.rowcount > 0
+                                        cursor.execute("RELEASE SAVEPOINT before_raw_delete")
+                                    except Exception as e:
+                                        # Si falla, volver al savepoint
+                                        cursor.execute("ROLLBACK TO SAVEPOINT before_raw_delete")
+                                        print(f"No se pudo borrar de RAW: {e}")
+                        
+                        cursor.execute("RELEASE SAVEPOINT before_select")
+                        
+                    except Exception as e:
+                        cursor.execute("ROLLBACK TO SAVEPOINT before_select")
+                        print(f"Error obteniendo ID original: {e}")
                 
-                # 3. Borrar de ocdul
+                # Siempre intentar borrar de ocdul
                 query_ocdul = f"DELETE FROM ocdul.{table_name} WHERE id = %s"
                 cursor.execute(query_ocdul, (record_id,))
                 
                 if cursor.rowcount > 0:
                     conn.commit()
                     
-                    # Mensaje informativo
                     if raw_deleted:
                         return True, f"Registro {record_id} eliminado de ocdul y RAW"
                     else:
                         return True, f"Registro {record_id} eliminado de ocdul"
                 else:
+                    conn.rollback()
                     return False, f"No se encontró el registro {record_id}"
                     
         except Exception as e:
