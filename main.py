@@ -59,7 +59,13 @@ def main():
             if selected_dashboard != current_dashboard:
                 st.session_state.current_dashboard = selected_dashboard
                 user_info['dashboard_id'] = selected_dashboard
-                user_info['dashboard'] = dict(all_dashboards[selected_dashboard])
+                
+                # Aquí está el fix - obtener del diccionario de configuración
+                if all_dashboards and selected_dashboard in all_dashboards:
+                    user_info['dashboard'] = dict(all_dashboards[selected_dashboard])
+                else:
+                    # Fallback - obtener directamente de secrets
+                    user_info['dashboard'] = dict(st.secrets['dashboards'][selected_dashboard])
                 
                 # Invalidar caché para recargar datos
                 from src.utils.data_cache import invalidate_social_cache
